@@ -38,7 +38,7 @@ typedef struct ray {
     vector3 direction;
 } ray;
 
-vector3 ray_at_t(double t, ray r);
+vector3 ray_at_t(ray r, double t);
 
 typedef struct ray_intersection {
     int intersects;

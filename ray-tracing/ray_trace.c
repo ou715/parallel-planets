@@ -10,15 +10,17 @@ ray_intersection sphere_intersect(const sphere sphere, const ray ray) {
 
     const double a = vector3_dot(ray.direction, ray.direction);
     const double b = -2.0 * vector3_dot(ray.direction, ray_to_sphere_centre);
-    const double c = vector3_dot(ray_to_sphere_centre, ray_to_sphere_centre) - (sphere.radius * sphere.radius);
+    const double c = vector3_length_squared(ray_to_sphere_centre) - (sphere.radius * sphere.radius);
 
     const double discriminant = b * b - 4 * a * c;
 
     if (discriminant > 0) {
-        intersection.intersects = 1;
         const double numerator = -b - sqrt(discriminant);
-        const double denominator = 2 * a;
-        intersection.t = numerator / denominator;
+        if (numerator >= 0) {
+            intersection.intersects = 1;
+            const double denominator = 2 * a;
+            intersection.t = numerator / denominator;
+        }
     }
 
     return intersection;

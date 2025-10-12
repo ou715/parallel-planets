@@ -54,6 +54,6 @@ vector3 unit_vector(const vector3 v) {
 
 //Ray code
 
-vector3 ray_at_t(const double t, const ray r) {
+vector3 ray_at_t(const ray r, const double t) {
     return add_vector3(r.origin, vector3_multiply_by_scalar(r.direction, t));
 }

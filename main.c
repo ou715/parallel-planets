@@ -12,19 +12,12 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stdint.h>
 #include <stdio.h>
 #include <time.h>
 
 #include "dependencies/stb_image_write.h"
 #include "ray-tracing/geometry.h"
-
-
-typedef struct pixel_colour {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-} pixel_colour;
+#include "ray-tracing/ray_trace.h"
 
 void draw_simple_image(pixel_colour *image, int image_width, int image_height) {
     for (int i = 0; i < image_height; i++) {
@@ -55,6 +48,22 @@ pixel_colour simple_ray_trace(const ray ray) {
     return colour;
 }
 
+
+pixel_colour sphere_ray_trace(const ray ray) {
+    pixel_colour colour;
+
+    vector3 ray_unit_direction = unit_vector(ray.direction);
+
+    colour.r = (uint8_t) ((ray_unit_direction.x + 1) * 117.0);
+    colour.g = (uint8_t) ((ray_unit_direction.y + 1) * 34 +
+               (uint8_t) ((ray_unit_direction.x + 1) * 34));
+    colour.b = (uint8_t) ((ray_unit_direction.y + 1) * 117.0);
+
+    //printf("The ray unit direction is x: %.2f, y: %.2f, z: %.2f\n", ray_unit_direction.x, ray_unit_direction.y, ray_unit_direction.z);
+
+    return colour;
+}
+
 void save_image_png(const pixel_colour *image, int image_width, int image_height, const char *filename) {
     const int row_size_bytes = image_width * sizeof(pixel_colour);
     //printf("Image byte_stride is %d\n", row_size_bytes);
@@ -67,7 +76,7 @@ int main(void) {
     clock_t begin = clock();
     printf("START PROGRAM\n");
 
-    const int image_width = 600;
+    const int image_width = 1200;
     const double aspect_ratio = 1.6; // almost as good as 4:3
     const int image_height = image_width / aspect_ratio;
 
@@ -114,6 +123,21 @@ int main(void) {
     //Useful information
     printf("The eye is positioned at x: %.2f, y: %.2f, z: %.2f\n", eye_position.x, eye_position.y, eye_position.z);
 
+    //Setup objects
+    //sphere sphere1 = {.radius = 5, .position = {.x = -12.0, .y = 3.0, .z = -20.0}};
+    //TODO Store the spheres in an array
+    //TODO Read object positions from a file at runtime
+    //solid_colour_sphere sphere2 = {.sphere = {.radius = 5, .position = {.x = -12.0, .y = 3.0, .z = -20.0}}, .colour = {.r = 0, .g = 255, .b = 0}};
+    solid_colour_sphere sphere3 = {.sphere = {.radius = 5, .position = {.x = 10.0, .y = -5.0, .z = -20.0}}, .colour = {.r = 0, .g = 255, .b = 0}};
+    solid_colour_sphere sphere4 = {.sphere = {.radius = 5, .position = {.x = -10.0, .y = 5.0, .z = -15.0}}, .colour = {.r = 150, .g = 0, .b = 0}};
+
+    //Setup light
+    //Parallel light source (could be a distant spherical light source)
+    vector3 light = {.x = 0.0, .y = -1.0, .z = 0.0}; //not used at the moment
+
+    //TODO Consider storing in a list, or a file
+    vector3 point_light = {.x = 0.0, .y = 5.0, .z = -20.0};
+
     //Draw
     //draw_simple_image(image, image_width, image_height);
 
@@ -133,8 +157,44 @@ int main(void) {
 
             pixel_colour colour = simple_ray_trace(ray);
 
-            image[i * image_width + j] = colour;
+            ray_intersection intersection = sphere_intersect(sphere3.sphere, ray);
+            ray_intersection intersection2 = sphere_intersect(sphere4.sphere, ray);
 
+            if (intersection.intersects) {
+                vector3 normal = subtract_second_vector3_from_first(ray_at_t(ray, intersection.t), sphere3.sphere.position);
+                vector3 unit_normal = unit_vector(normal);
+                double projection = vector3_dot(unit_normal, light);
+
+                vector3 intersection_to_light_source = subtract_second_vector3_from_first(point_light,ray_at_t(ray, intersection.t));
+                vector3 intersection_to_light_source_normal = unit_vector(intersection_to_light_source);
+                double normal_light_projection = vector3_dot(unit_normal, intersection_to_light_source_normal);
+
+                colour.r = (normal_light_projection + 1)/2 * sphere3.colour.r;
+                colour.g = (normal_light_projection + 1)/2 * sphere3.colour.g;
+                colour.b = (normal_light_projection + 1)/2 * sphere3.colour.b;
+                //printf("The projection value is: %.2f, and the green value is: %d\n", normal_light_projection, colour.g);
+
+            };
+
+            if (intersection2.intersects) {
+                //TODO move to a separate function
+                vector3 normal2 = subtract_second_vector3_from_first(ray_at_t(ray, intersection2.t), sphere4.sphere.position);
+                vector3 unit_normal2 = unit_vector(normal2);
+                double projection2 = vector3_dot(unit_normal2, light);
+
+                vector3 intersection_to_light_source = subtract_second_vector3_from_first(point_light,ray_at_t(ray, intersection2.t));
+                vector3 intersection_to_light_source_normal = unit_vector(intersection_to_light_source);
+                double normal_light_projection = vector3_dot(unit_normal2, intersection_to_light_source_normal);
+
+                colour.r = (normal_light_projection + 1)/2 * sphere4.colour.r;
+                colour.g = (normal_light_projection + 1)/2 * sphere4.colour.g;
+                colour.b = (normal_light_projection + 1)/2 * sphere4.colour.b;
+                //printf("The projection value is: %.2f, and the green value of the second sphere is is: %d\n", normal_light_projection, colour.g);
+                //printf("The projection value is: %.2f, the colour coefficient is %.2f and the red value of the second sphere is is: %d\n", normal_light_projection, (normal_light_projection - 1)/2, colour.r);
+                //printf("The projection value is: %.2f, and the blue value of the second sphere is is: %d\n", normal_light_projection, colour.b);
+            };
+
+            image[i * image_width + j] = colour;
         }
     }
 
