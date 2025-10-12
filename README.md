@@ -1,19 +1,19 @@
 # Parallel Planets
 
 ## Table of Contents
-- [About](##-About)
-- [Goals](###-Goals)
-- [Feature Tracker](###-Feature-Tracker)
-- [Licence](###-Licence)
+- [About](#about)
+- [Goals](#goals)
+- [Progress Tracker](#progress-tracker)
+- [Licence](#licence)
 
-## About
+### About
 The goal of this program is to implement a (simple) ray tracer and parallelise it using OpenMPI.
 
 ### Goals
 - [ ] Parallel (OpenMPI) ray tracing program
 - [ ] Objects moving according to a law of motion (ODE Solver)
-- [ ] Split work across a cluster
 - [ ] Object/camera movement and video generation
+- [ ] Split work across a cluster (motion vs visualisation)
 
 
 ### Progress Tracker
@@ -32,6 +32,8 @@ The goal of this program is to implement a (simple) ray tracer and parallelise i
 ![Output](outputs/image.png)
 ### References
 
+ - [Computer Graphics Principles and Practice By John F. Hughes, Andries Van Dam, Morgan McGuire, James D. Foley, David Sklar, Steven K. Feiner, Kurt Akeley · 2014](https://www.worldcat.org/title/computer-graphics-principles-and-practice/oclc/828142648)
+ - [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
 
 ### Licence
 > This program (Parallel Planets) is free software: you can redistribute it and/or modify
