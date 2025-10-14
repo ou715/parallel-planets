@@ -3,11 +3,15 @@ project(parallel-planets C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(parallel-planets main.c
-        ray-tracing/geometry.c
-        ray-tracing/geometry.h
-        ray-tracing/ray_trace.c
-        ray-tracing/ray_trace.h
+add_executable(parallel-planets src/main.c
+        src/ray-tracing/geometry.c
+        src/ray-tracing/geometry.h
+        src/ray-tracing/ray_trace.c
+        src/ray-tracing/ray_trace.h
+        src/utils/io.c
+        src/utils/io.h
+        src/utils/scene.c
+        src/utils/scene.h
 )
 
 

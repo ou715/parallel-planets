@@ -16,6 +16,13 @@ typedef struct solid_colour_sphere {
     pixel_colour colour;
 } solid_colour_sphere;
 
-ray_intersection sphere_intersect(sphere sphere, ray ray);
+typedef struct hit_sphere {
+    int sphere_index;
+    ray_intersection ray_intersection;
+} hit_sphere;
 
+
+
+ray_intersection sphere_intersect(sphere sphere, ray ray);
+hit_sphere intersected_sphere_index(ray ray, solid_colour_sphere *spheres, int number_of_spheres );
 #endif //RAY_TRACE_H

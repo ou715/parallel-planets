@@ -26,3 +26,16 @@ ray_intersection sphere_intersect(const sphere sphere, const ray ray) {
     return intersection;
 }
 
+hit_sphere intersected_sphere_index(const ray ray, solid_colour_sphere *spheres, int number_of_spheres ) {
+    hit_sphere potential_hit_sphere = {.sphere_index = -1};
+
+    for (int i = 0; i < number_of_spheres; i++) {
+        ray_intersection intersection = sphere_intersect(spheres[i].sphere, ray);
+        if (intersection.intersects == 1) {
+            potential_hit_sphere.sphere_index = i;
+            potential_hit_sphere.ray_intersection = intersection;
+        }
+    }
+    return potential_hit_sphere;
+}
+
