@@ -26,7 +26,7 @@ ray_intersection sphere_intersect(const sphere sphere, const ray ray) {
     return intersection;
 }
 
-hit_sphere intersected_sphere_index(const ray ray, solid_colour_sphere *spheres, int number_of_spheres ) {
+hit_sphere intersected_sphere_index(const ray ray, const solid_colour_sphere *spheres, int number_of_spheres ) {
     hit_sphere potential_hit_sphere = {.sphere_index = -1};
 
     for (int i = 0; i < number_of_spheres; i++) {
@@ -39,3 +39,24 @@ hit_sphere intersected_sphere_index(const ray ray, solid_colour_sphere *spheres,
     return potential_hit_sphere;
 }
 
+//TODO write into image directly
+pixel_colour shade(const ray ray, ray_intersection intersection, solid_colour_sphere hit_sphere, vector3 point_light) {
+    pixel_colour colour;
+
+    vector3 normal = subtract_second_vector3_from_first(ray_at_t(ray, intersection.t), hit_sphere.sphere.position);
+    vector3 unit_normal2 = unit_vector(normal);
+
+    vector3 intersection_to_light_source = subtract_second_vector3_from_first(point_light,ray_at_t(ray, intersection.t));
+    vector3 intersection_to_light_source_normal = unit_vector(intersection_to_light_source);
+    double normal_light_projection = vector3_dot(unit_normal2, intersection_to_light_source_normal);
+
+    colour.r = (normal_light_projection + 1)/2 * hit_sphere.colour.r;
+    colour.g = (normal_light_projection + 1)/2 * hit_sphere.colour.g;
+    colour.b = (normal_light_projection + 1)/2 * hit_sphere.colour.b;
+
+    colour.r = ((normal_light_projection + 1)/2) * ((normal_light_projection + 1)/2) * hit_sphere.colour.r;
+    colour.g = ((normal_light_projection + 1)/2) * ((normal_light_projection + 1)/2) * hit_sphere.colour.g;
+    colour.b = ((normal_light_projection + 1)/2) * ((normal_light_projection + 1)/2) * hit_sphere.colour.b;
+
+    return colour;
+}

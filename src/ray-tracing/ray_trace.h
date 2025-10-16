@@ -24,5 +24,7 @@ typedef struct hit_sphere {
 
 
 ray_intersection sphere_intersect(sphere sphere, ray ray);
-hit_sphere intersected_sphere_index(ray ray, solid_colour_sphere *spheres, int number_of_spheres );
+hit_sphere intersected_sphere_index(ray ray, const solid_colour_sphere *spheres, int number_of_spheres );
+pixel_colour shade(ray ray, ray_intersection intersection, solid_colour_sphere hit_sphere, vector3 point_light);
+
 #endif //RAY_TRACE_H

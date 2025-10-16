@@ -34,6 +34,7 @@ The goal of this program is to implement a (simple) ray tracer and parallelise i
 
  - [Computer Graphics Principles and Practice By John F. Hughes, Andries Van Dam, Morgan McGuire, James D. Foley, David Sklar, Steven K. Feiner, Kurt Akeley · 2014](https://www.worldcat.org/title/computer-graphics-principles-and-practice/oclc/828142648)
  - [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
+ - [MPI Tutorial](https://mpitutorial.com)
 
 ### Licence
 > This program (Parallel Planets) is free software: you can redistribute it and/or modify

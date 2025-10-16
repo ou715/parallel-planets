@@ -3,6 +3,9 @@ project(parallel-planets C)
 
 set(CMAKE_C_STANDARD 11)
 
+find_package(MPI REQUIRED)
+
+
 add_executable(parallel-planets src/main.c
         src/ray-tracing/geometry.c
         src/ray-tracing/geometry.h
@@ -17,5 +20,5 @@ add_executable(parallel-planets src/main.c
 
 find_library(MATH_LIBRARY m)
 if(MATH_LIBRARY)
-    target_link_libraries(parallel-planets PUBLIC ${MATH_LIBRARY})
+    target_link_libraries(parallel-planets PRIVATE ${MATH_LIBRARY} MPI::MPI_C)
 endif()

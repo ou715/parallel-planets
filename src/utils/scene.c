@@ -4,10 +4,18 @@
 
 #include "scene.h"
 
+/**
+ *
+ * @param image_width
+ * @param image_height
+ * @return
+ */
 scene scene_init(int image_width, int image_height) {
-
+    //TODO have more scene parameters configurable
     scene scene;
 
+    //The units are not pixels; this is in world coordinates, image variables relate to resolution that fits into this size
+    //Changing these settings changes the field of vision
     const double viewscreen_height = 2.0; //eyes could be rectangles
     const double viewscreen_width = viewscreen_height * ((double) image_width / image_height);
 
