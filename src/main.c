@@ -15,7 +15,6 @@
 #include <string.h>
 #include <time.h>
 #include <linux/limits.h>
-#include <libgen.h>
 #include <stdlib.h>
 
 #include "ray-tracing/geometry.h"
@@ -23,32 +22,9 @@
 #include "utils/io.h"
 #include "utils/scene.h"
 #include "mpi/mpi.h"
+#include "utils/mpi_utils.h"
 
-/**
- *
- * @param ray
- * @return
- */
-pixel_colour background_colour(const ray ray) {
-    pixel_colour colour;
 
-    vector3 ray_unit_direction = unit_vector(ray.direction);
-
-    colour.r = (uint8_t) ((ray_unit_direction.x + 1) * 117.0);
-    colour.g = (uint8_t) ((ray_unit_direction.y + 1) * 34 +
-               (uint8_t) ((ray_unit_direction.x + 1)  * 34));
-    colour.b = (uint8_t) ((ray_unit_direction.y + 1) * 117.0);
-
-    //printf("The ray unit direction is x: %.2f, y: %.2f, z: %.2f\n", ray_unit_direction.x, ray_unit_direction.y, ray_unit_direction.z);
-
-    return colour;
-}
-
-void allocate_rows_to_processes_blocks(int image_height, int *rows_to_process) {
-    for (int i = 0; i < ( image_height); i++) {
-        rows_to_process[i] = i;
-    }
-}
 
 /**
  * Useful for prototyping
@@ -62,85 +38,6 @@ void simple_move_spheres(solid_colour_sphere *spheres, int t) {
     sphere.sphere.position.z += cos(t) + 1;;
     spheres[1] = sphere;
 }
-
-/**
- *
- * @param image_width
- * @param rows_to_process
- * @param number_of_rows
- * @param scene
- * @param spheres
- * @param point_light
- * @param image
- * @param process_index
- */
-void render_pixels(
-                    const int image_width,
-                    const int *rows_to_process,
-                    const int number_of_rows,
-                    scene scene,
-                    const solid_colour_sphere *spheres,
-                    vector3 point_light, pixel_colour *image,
-                    int process_index) {
-
-
-    for (int i = 0; i < number_of_rows; i++) {
-        for (int j = 0; j < image_width; ++j) {
-            if (process_index == 1) {
-                //printf("Currently processing row %d\n", rows_to_process[i]);
-            }
-            //printf("Currently processing column %d\n", j);
-            vector3 pixel_location = add_vector3(add_vector3(scene.viewscreen_first_pixel_location,
-                                                             vector3_multiply_by_scalar(scene.viewscreen_delta_u, j)),
-                                                 vector3_multiply_by_scalar(scene.viewscreen_delta_v, rows_to_process[i]));
-
-            //printf("The calculating pixel at location: x: %.2f, y: %.2f, z: %.2f\n", pixel_location.x, pixel_location.y, pixel_location.z);
-
-            ray ray = {.direction = subtract_second_vector3_from_first(pixel_location, scene.eye_position), .origin = scene.eye_position};
-
-            pixel_colour colour = background_colour(ray);
-
-            hit_sphere potential_sphere_hit = intersected_sphere_index(ray, spheres, 2);
-            if (potential_sphere_hit.sphere_index != -1) {
-                colour = shade(ray, potential_sphere_hit.ray_intersection, spheres[potential_sphere_hit.sphere_index], point_light);
-                //printf("Shading sphere %d\n", potential_sphere_hit.sphere_index);
-            }
-            // if (process_index == 1) {
-            //     printf("Process %d attempting to write to %d\n", process_index, i * image_width + j);
-            // }
-            image[i * image_width + j] = colour;
-        }
-    }
-    //printf("Process %d finished rendering\n", process_index);
-
-}
-
-/**
- *
- * @return MPI Data type of uint8_t triple struct. Not sure why isn't there a helper function for this in OpenMPI
- */
-MPI_Datatype create_pixel_colour_mpi_type(void) {
-    MPI_Datatype pixel_colour_type;
-    const int count = 3;
-    const int blocklengths[3] = {1, 1, 1};
-    const MPI_Datatype types[3] = {MPI_UNSIGNED_CHAR, MPI_UNSIGNED_CHAR, MPI_UNSIGNED_CHAR};
-    MPI_Aint displacements[3], base;
-
-    pixel_colour sample;
-    MPI_Get_address(&sample, &base);
-    MPI_Get_address(&sample.r, &displacements[0]);
-    MPI_Get_address(&sample.g, &displacements[1]);
-    MPI_Get_address(&sample.b, &displacements[2]);
-
-    for (int i = 0; i < count; i++) {
-        displacements[i] -= base;
-    }
-
-    MPI_Type_create_struct(count, blocklengths, displacements, types, &pixel_colour_type);
-    MPI_Type_commit(&pixel_colour_type);
-    return pixel_colour_type;
-}
-
 
 int main(int argc, char **argv) {
     clock_t begin = clock();

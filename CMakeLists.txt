@@ -15,6 +15,9 @@ add_executable(parallel-planets src/main.c
         src/utils/io.h
         src/utils/scene.c
         src/utils/scene.h
+        src/utils/mpi_utils.h
+        src/utils/mpi_utils.c
+        src/utils/mpi_utils.h
 )
 
 
