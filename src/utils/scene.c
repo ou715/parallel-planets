@@ -21,7 +21,7 @@ scene scene_init(int image_width, int image_height) {
 
     const double eye_to_viewscreen = 1.0;
 
-    vector3 eye_position = {.x = 0.0, .y = 0.0, .z = 0.0};
+    vector3 eye_position = {.x = 0.0, .y = 0.0, .z = 20.0};
 
     vector3 viewscreen_u = {.x = viewscreen_width, .y = 0, .z = 0.0};
     vector3 viewscreen_v = {.x = 0, .y = -viewscreen_height, .z = 0.0};

@@ -18,6 +18,8 @@ add_executable(parallel-planets src/main.c
         src/utils/mpi_utils.h
         src/utils/mpi_utils.c
         src/utils/mpi_utils.h
+        src/dynamics/move.c
+        src/dynamics/move.h
 )
 
 

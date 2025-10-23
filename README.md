@@ -29,7 +29,8 @@ The goal of this program is to implement a (simple) ray tracer and parallelise i
 | OpenMPI cluster communication | to be started | surely networking is simple                 |
 
 ### Sample Output
-![Output](outputs/image.png)
+![Two body dynamics](outputs/output.gif)
+
 ### References
 
  - [Computer Graphics Principles and Practice By John F. Hughes, Andries Van Dam, Morgan McGuire, James D. Foley, David Sklar, Steven K. Feiner, Kurt Akeley · 2014](https://www.worldcat.org/title/computer-graphics-principles-and-practice/oclc/828142648)

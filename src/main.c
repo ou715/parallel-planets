@@ -23,6 +23,7 @@
 #include "utils/scene.h"
 #include "mpi/mpi.h"
 #include "utils/mpi_utils.h"
+#include "dynamics/move.h"
 
 
 
@@ -48,7 +49,7 @@ int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
 
     int world_size;
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    //MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -62,11 +63,35 @@ int main(int argc, char **argv) {
 
     //Define custom MPI data type; will be used for communicating
     MPI_Datatype pixel_colour_type = create_pixel_colour_mpi_type();
+    MPI_Datatype vector3_type = create_vector3_mpi_type();
+
+
+    //Define communicators
+    MPI_Group world_group, ray_tracing_group, dynamics_group;
+    MPI_Comm_group(MPI_COMM_WORLD, &world_group);
+
+    int ray_tracing_ranks_number = 8;
+    int ray_tracing_ranks[8] = {0, 1, 2, 3, 8, 9, 10, 11};
+    int dynamics_ranks_number = 4;
+    int dynamics_ranks[4] = {4, 5, 6, 7};
+    MPI_Comm ray_tracing_comm, dynamics_comm;
+
+    MPI_Group_incl(world_group, ray_tracing_ranks_number, ray_tracing_ranks, &ray_tracing_group);
+    MPI_Comm_create_group(MPI_COMM_WORLD, ray_tracing_group, 0, &ray_tracing_comm);
+
+    MPI_Group_incl(world_group, dynamics_ranks_number, dynamics_ranks, &dynamics_group);
+    MPI_Comm_create_group(MPI_COMM_WORLD, dynamics_group, 0, &dynamics_comm);
+
+
+    //MPI_Comm_create(MPI_COMM_WORLD, new_group, &new_comm);
+    int new_rank;
+    MPI_Group_rank(ray_tracing_group, &new_rank);
 
     //IMAGE RELATED SETUP
 
+    //TODO read these from an input file or command line
     const double aspect_ratio = 1.6; // almost as good as 4:3
-    const int image_height = 1200; //for even division of work; should be generalized
+    const int image_height = 400; //for even division of work; should be generalized
     const int image_width = image_height * aspect_ratio; //for even division of work; should be generalized
 
     ///////
@@ -75,8 +100,6 @@ int main(int argc, char **argv) {
     pixel_colour *image = malloc(image_width * image_height * sizeof(pixel_colour));
 
 
-    //printf("Image width is %d and image height is %d\n", image_width, image_height);
-
     //Useful information
     //printf("The eye is positioned at x: %.2f, y: %.2f, z: %.2f\n", scene.eye_position.x, scene.eye_position.y, scene.eye_position.z);
 
@@ -84,8 +107,13 @@ int main(int argc, char **argv) {
     //sphere sphere1 = {.radius = 5, .position = {.x = -12.0, .y = 3.0, .z = -20.0}};
     //TODO Read object positions from a file at runtime
     //solid_colour_sphere sphere2 = {.sphere = {.radius = 5, .position = {.x = -12.0, .y = 3.0, .z = -20.0}}, .colour = {.r = 0, .g = 255, .b = 0}};
-    solid_colour_sphere sphere3 = {.sphere = {.radius = 5, .position = {.x = 10.0, .y = -5.0, .z = -20.0}}, .colour = {.r = 0, .g = 255, .b = 0}};
-    solid_colour_sphere sphere4 = {.sphere = {.radius = 5, .position = {.x = -10.0, .y = 5.0, .z = -25.0}}, .colour = {.r = 150, .g = 0, .b = 0}};
+    solid_colour_sphere sphere3 = {.sphere = {.radius = 5, .position = {.x = 10.0, .y = -5.0, .z = -30.0}}, .colour = {.r = 0, .g = 255, .b = 0}};
+    solid_colour_sphere sphere4 = {.sphere = {.radius = 5, .position = {.x = -10.0, .y = 5.0, .z = -30.0}}, .colour = {.r = 150, .g = 0, .b = 0}};
+
+
+    sphere_with_mass sphere3_m = {.mass = 1, .position = sphere3.sphere.position, .velocity = {.x = 0, .y = 0, .z = 0}};
+    sphere_with_mass sphere4_m = {.mass = 1, .position = sphere4.sphere.position, .velocity = {.x = 1, .y = 1, .z = 0}};
+
 
     solid_colour_sphere spheres[2] = { sphere3, sphere4 };
 
@@ -96,7 +124,7 @@ int main(int argc, char **argv) {
     //TODO Consider storing in a list, or a file
     vector3 point_light = {.x = 0.0, .y = 15000.0, .z = -20.0};
 
-    int number_of_rows_per_process = image_height / world_size;
+    int number_of_rows_per_process = image_height / ray_tracing_ranks_number;
 
     int rows_to_process[image_height];
 
@@ -108,62 +136,74 @@ int main(int argc, char **argv) {
         printf("Output root is:  %s\n", output_root);
 
         printf("Rows per process:  %d\n", number_of_rows_per_process );
+
+        //Sending data in consecutive rows. There are probably more efficient ways to split the work,
+        //if more advanced rendering techniques were in use
+        //The simple one has all the rays completely independent
+        allocate_rows_to_processes_blocks(image_height, rows_to_process);
     }
 
-    //Main time loop
-    int number_of_time_steps = 10;
-    for (int t = 0; t < number_of_time_steps; t++) {
-        if (rank == 0) {
 
-            //Sending data in consecutive rows. There are probably more efficient ways to split the work,
-            //if more advanced rendering techniques were in use
-            //The simple one has all the rays completely independent
-            allocate_rows_to_processes_blocks(image_height, rows_to_process);
-        }
+    int received_rows[number_of_rows_per_process];
 
-        int received_rows[number_of_rows_per_process];
+    int pixels_to_receive = image_width * number_of_rows_per_process; //also the number of total pixels per partial image
 
-        int pixels_to_receive = image_width * number_of_rows_per_process; //also the number of total pixels per partial image
-        //printf("Total pixels to be processed by each process:  %d\n", pixels_to_receive );
-
+    if (ray_tracing_comm != MPI_COMM_NULL) {
         pixel_colour *partial_image = malloc(pixels_to_receive * sizeof(pixel_colour));
-        if (partial_image == NULL) {
-            printf("Failed to allocate memory for partial image\n");
-        }
 
         MPI_Scatter(rows_to_process, number_of_rows_per_process, MPI_INT, received_rows,
-            number_of_rows_per_process, MPI_INT, 0, MPI_COMM_WORLD);
+        number_of_rows_per_process, MPI_INT, 0, ray_tracing_comm);
 
+        //Main time loop
+        int number_of_time_steps = 50000;
+        for (int t = 0; t < number_of_time_steps; t++) {
 
-        // if (rank == 1) {
-        //     for (int i = 0; i < number_of_rows_per_process; i++) {
-        //         printf("Rows to render for process %d : %d \n", rank, received_rows[i]);
-        //     }
-        // }
+            //printf("Total pixels to be processed by each process:  %d\n", pixels_to_receive );
 
-        //printf("All scattered\n");
+            if (partial_image == NULL) {
+                printf("Failed to allocate memory for partial image\n");
+            }
 
-        //Actual work
-        render_pixels(image_width, received_rows, number_of_rows_per_process, scene, spheres,point_light, partial_image, rank);
+            //printf("All scattered\n");
 
-        //printf("All rendered\n");
+            //Actual work
+            render_pixels(image_width, received_rows, number_of_rows_per_process, scene, spheres,point_light, partial_image, rank);
 
-        MPI_Gather(partial_image, pixels_to_receive, pixel_colour_type, image, pixels_to_receive, pixel_colour_type, 0, MPI_COMM_WORLD);
+            //printf("All rendered\n");
 
-        //Output
-        if (rank == 0) {
-            char image_output_path[PATH_MAX];
-            snprintf(image_output_path, sizeof(image_output_path), "%s/outputs/image_%d.png", output_root, t);
+            MPI_Gather(partial_image, pixels_to_receive, pixel_colour_type, image, pixels_to_receive, pixel_colour_type, 0, ray_tracing_comm);
 
-            save_image_png(image, image_width, image_height, image_output_path);
+            //Output
+            if (rank == 0) {
+                //printf("The position of sphere3 is x: %.2f, y: %.2f, z: %.2f\n", sphere3.sphere.position.x, sphere3.sphere.position.y, sphere3.sphere.position.z);
+                //printf("The position of sphere3_m is x: %.2f, y: %.2f, z: %.2f\n", sphere3_m.position.x, sphere3_m.position.y, sphere3_m.position.z);
+                char image_output_path[PATH_MAX];
+                if (t % 100 == 0) {
+                    snprintf(image_output_path, sizeof(image_output_path), "%s/outputs/video/image_%04d.png", output_root, t/100);
+
+                    save_image_png(image, image_width, image_height, image_output_path);
+                }
+
+                //snprintf(image_output_path, sizeof(image_output_path), "%s/outputs/video/image_%04d.png", output_root, t);
+
+                //save_image_png(image, image_width, image_height, image_output_path);
+
+                vector3 force1 = calculate_force(sphere4_m, sphere3_m);
+                vector3 acc1 = calculate_acceleration(sphere4_m, force1);
+                update_position_euler_explicit(&sphere4_m, acc1, 0.05);
+            }
+
+            //Update the other ranks about the position/velocity of the spheres
+            MPI_Bcast(&sphere4_m.position, 3, vector3_type, 0, ray_tracing_comm);
+            sphere4.sphere.position = sphere4_m.position;
+            spheres[1] = sphere4;
+
+            //simple_move_spheres(spheres,t);
 
         }
-
-        MPI_Barrier(MPI_COMM_WORLD);
-
         free(partial_image);
-        simple_move_spheres(spheres,t);
     }
+
     free(image);
 
     MPI_Type_free(&pixel_colour_type);
