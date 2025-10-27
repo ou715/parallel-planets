@@ -8,4 +8,4 @@ NINJA_PATH="$1"
 && \
 /usr/bin/cmake \
   --build cmake-build-debug \
-  --target parallel-planets -j 22
+  --target parallel-planets -j 4
