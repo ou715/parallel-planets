@@ -98,6 +98,7 @@ void render_pixels(
                     const int number_of_rows,
                     scene scene,
                     const solid_colour_sphere *spheres,
+                    const int number_of_spheres,
                     vector3 point_light,
                     pixel_colour *image,
                     int process_index) {
@@ -118,7 +119,7 @@ void render_pixels(
 
             pixel_colour colour = background_colour(ray);
 
-            hit_sphere potential_sphere_hit = intersected_sphere_index(ray, spheres, 2);
+            hit_sphere potential_sphere_hit = intersected_sphere_index(ray, spheres, number_of_spheres);
             if (potential_sphere_hit.sphere_index != -1) {
                 colour = shade(ray, potential_sphere_hit.ray_intersection, spheres[potential_sphere_hit.sphere_index], point_light);
                 //printf("Shading sphere %d\n", potential_sphere_hit.sphere_index);

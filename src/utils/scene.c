@@ -16,12 +16,12 @@ scene scene_init(int image_width, int image_height) {
 
     //The units are not pixels; this is in world coordinates, image variables relate to resolution that fits into this size
     //Changing these settings changes the field of vision
-    const double viewscreen_height = 2.0; //eyes could be rectangles
+    const double viewscreen_height = 100.0; //eyes could be rectangles
     const double viewscreen_width = viewscreen_height * ((double) image_width / image_height);
 
-    const double eye_to_viewscreen = 1.0;
+    const double eye_to_viewscreen = 39.0;
 
-    vector3 eye_position = {.x = 0.0, .y = 0.0, .z = 20.0};
+    vector3 eye_position = {.x = 0.0, .y = 0.0, .z = 100.0};
 
     vector3 viewscreen_u = {.x = viewscreen_width, .y = 0, .z = 0.0};
     vector3 viewscreen_v = {.x = 0, .y = -viewscreen_height, .z = 0.0};
@@ -29,7 +29,7 @@ scene scene_init(int image_width, int image_height) {
     vector3 half_viewscreen_u = vector3_multiply_by_scalar(viewscreen_u, 0.5);
     vector3 half_viewscreen_v = vector3_multiply_by_scalar(viewscreen_v, 0.5);
 
-    vector3 viewscreen_centre = {.x = 0.0, .y = 0.0, .z = eye_to_viewscreen};
+    vector3 viewscreen_centre = {.x = 0.0, .y = 0.0, .z = eye_position.z - eye_to_viewscreen};
 
     //should probably add more utility functions for vector operations; I really miss operator overloading
 

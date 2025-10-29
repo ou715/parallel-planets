@@ -20,10 +20,10 @@ The goal of this program is to implement a (simple) ray tracer and parallelise i
 | Name                          | Status        | Comment                                     |
 |-------------------------------|---------------|---------------------------------------------|
 | Static image ray traced       | done          | only simple shapes, like spheres and planes |
-| OpenMPI integration           | in progress   | basic division of work, one communicator    | 
+| OpenMPI integration           | in progress   | basic division of work, one communicator    |
 | Reflective surfaces           | to be started | specular reflections                        |
 | Transparent objects           | to be started | can include colour changes                  |
-| Central force movement        | to be started | probably solved using Runge-Kutta
+| Central force movement        | to be started | Using velocity Verlet method
 | Dynamic image generation      | in progress   | to simulate camera and/or object movement   |
 | Stitch images into a video    | to be started | probably using ffmpeg                       |
 | OpenMPI cluster communication | to be started | surely networking is simple                 |
@@ -37,6 +37,8 @@ The goal of this program is to implement a (simple) ray tracer and parallelise i
  - [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
  - [Kendall, W. (n.d.). MPI tutorial. mpitutorial.com. Retrieved [2025-10-10]](https://mpitutorial.com)
  - [Pacheco, Peter S. An Introduction to Parallel Programming. Elsevier, 2011.](https://doi.org/10.1016/C2009-0-18471-4)
+ - [Shashi Gowda, Yingbo Ma, Alessandro Cheli, Maja Gwóźdź, Viral B. Shah, Alan Edelman, and Christopher Rackauckas. (2022). High-performance symbolic-numerics via multiple dispatch](https://arxiv.org/abs/2105.03949)
+
 
 ### Licence
 > This program (Parallel Planets) is free software: you can redistribute it and/or modify
