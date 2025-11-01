@@ -1,1 +1,1 @@
-ffmpeg -r 24 -start_number 1 -i ./outputs/video/image_%04d.png -c:v libx265 -crf 24 -preset slow -pix_fmt yuv420p -r 24 ./outputs/video/output.mkv
+ffmpeg -r 36 -start_number 1 -i ./outputs/video/image_%04d.png -c:v libx265 -crf 24 -preset slow -pix_fmt yuv420p -r 24 ./outputs/video/output.mkv
