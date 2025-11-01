@@ -71,12 +71,10 @@ pixel_colour background_colour(const ray ray) {
 
     vector3 ray_unit_direction = unit_vector(ray.direction);
 
-    colour.r = (uint8_t) ((ray_unit_direction.x + 1) * 117.0);
-    colour.g = (uint8_t) ((ray_unit_direction.y + 1) * 34 +
+    colour.r = (uint8_t) (((ray_unit_direction.x + 1) * 117.0));
+    colour.g = (uint8_t) (((ray_unit_direction.y + 1) * 34) +
                (uint8_t) ((ray_unit_direction.x + 1)  * 34));
     colour.b = (uint8_t) ((ray_unit_direction.y + 1) * 117.0);
-
-    //printf("The ray unit direction is x: %.2f, y: %.2f, z: %.2f\n", ray_unit_direction.x, ray_unit_direction.y, ray_unit_direction.z);
 
     return colour;
 }
@@ -103,26 +101,28 @@ void render_pixels(
                     pixel_colour *image,
                     int process_index) {
 
+    pixel_colour colour;
+    vector3 eye_to_corner = subtract_second_vector3_from_first(scene.viewscreen_first_pixel_location, scene.eye_position);
     for (int i = 0; i < number_of_rows; i++) {
+        vector3 eye_to_vertical_offset = add_vector3(eye_to_corner,
+                                                vector3_multiply_by_scalar(scene.viewscreen_delta_v, rows_to_process[i]));
         for (int j = 0; j < image_width; ++j) {
             if (process_index == 1) {
                 //printf("Currently processing row %d\n", rows_to_process[i]);
             }
             //printf("Currently processing column %d\n", j);
-            vector3 pixel_location = add_vector3(add_vector3(scene.viewscreen_first_pixel_location,
-                                                             vector3_multiply_by_scalar(scene.viewscreen_delta_u, j)),
-                                                 vector3_multiply_by_scalar(scene.viewscreen_delta_v, rows_to_process[i]));
+            vector3 pixel_location = add_vector3(vector3_multiply_by_scalar(scene.viewscreen_delta_u, j), eye_to_vertical_offset);
 
             //printf("The calculating pixel at location: x: %.2f, y: %.2f, z: %.2f\n", pixel_location.x, pixel_location.y, pixel_location.z);
 
-            ray ray = {.direction = subtract_second_vector3_from_first(pixel_location, scene.eye_position), .origin = scene.eye_position};
-
-            pixel_colour colour = background_colour(ray);
+            ray ray = {.direction = pixel_location, .origin = scene.eye_position};
 
             hit_sphere potential_sphere_hit = intersected_sphere_index(ray, spheres, number_of_spheres);
             if (potential_sphere_hit.sphere_index != -1) {
                 colour = shade(ray, potential_sphere_hit.ray_intersection, spheres[potential_sphere_hit.sphere_index], point_light);
                 //printf("Shading sphere %d\n", potential_sphere_hit.sphere_index);
+            } else {
+                colour = background_colour(ray);
             }
             // if (process_index == 1) {
             //     printf("Process %d attempting to write to %d\n", process_index, i * image_width + j);

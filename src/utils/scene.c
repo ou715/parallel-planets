@@ -19,9 +19,9 @@ scene scene_init(int image_width, int image_height) {
     const double viewscreen_height = 100.0; //eyes could be rectangles
     const double viewscreen_width = viewscreen_height * ((double) image_width / image_height);
 
-    const double eye_to_viewscreen = 39.0;
+    const double eye_to_viewscreen = 100.0;
 
-    vector3 eye_position = {.x = 0.0, .y = 0.0, .z = 100.0};
+    vector3 eye_position = {.x = 0.0, .y = 0.0, .z = 200.0};
 
     vector3 viewscreen_u = {.x = viewscreen_width, .y = 0, .z = 0.0};
     vector3 viewscreen_v = {.x = 0, .y = -viewscreen_height, .z = 0.0};
@@ -29,7 +29,7 @@ scene scene_init(int image_width, int image_height) {
     vector3 half_viewscreen_u = vector3_multiply_by_scalar(viewscreen_u, 0.5);
     vector3 half_viewscreen_v = vector3_multiply_by_scalar(viewscreen_v, 0.5);
 
-    vector3 viewscreen_centre = {.x = 0.0, .y = 0.0, .z = eye_position.z - eye_to_viewscreen};
+    vector3 viewscreen_centre = {.x = 0.0, .y = 0.0, .z = (eye_position.z - eye_to_viewscreen)};
 
     //should probably add more utility functions for vector operations; I really miss operator overloading
 
@@ -58,8 +58,6 @@ scene scene_init(int image_width, int image_height) {
     scene.viewscreen_first_pixel_location = viewscreen_first_pixel_location;
     scene.viewscreen_delta_u = viewscreen_delta_u;
     scene.viewscreen_delta_v = viewscreen_delta_v;
-
-
 
     return scene;
 }

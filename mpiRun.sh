@@ -1,1 +1,1 @@
-mpiexec -n "$2" ./cmake-build-debug/parallel-planets "$(pwd)"
+mpiexec -n "$2" ./cmake-build-release/parallel-planets "$(pwd)"
