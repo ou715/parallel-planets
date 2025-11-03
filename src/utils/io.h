@@ -1,7 +1,3 @@
-//
-// Created by nemo on 14/10/25.
-//
-
 #ifndef IO_H
 #define IO_H
 #define STBIW_ZLIB_COMPRESSION_LEVEL 1
@@ -10,5 +6,5 @@
 #include <unistd.h>
 
 void save_image_png(const pixel_colour *image, int image_width, int image_height, char *filename);
-
+void read_sphere_configuration(char *file_path, solid_colour_sphere **spheres);
 #endif //IO_H

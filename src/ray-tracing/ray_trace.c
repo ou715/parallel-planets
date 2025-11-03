@@ -64,7 +64,7 @@ pixel_colour shade(const ray ray, ray_intersection intersection, solid_colour_sp
 /**
  *
  * @param ray
- * @return
+ * @return A background colour. Not guaranteed to stay stable.
  */
 pixel_colour background_colour(const ray ray) {
     pixel_colour colour;

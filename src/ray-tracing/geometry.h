@@ -16,8 +16,6 @@ typedef struct vector3 {
     double x, y, z;
 } vector3;
 
-
-
 vector3 add_vector3(vector3 a, vector3 b);
 vector3 subtract_second_vector3_from_first(vector3 a, vector3 b);
 vector3 vector3_multiply_by_scalar(vector3 v, double scalar);
@@ -29,7 +27,9 @@ vector3 unit_vector(vector3 v);
 //Geometric bodies
 typedef struct sphere {
     double radius;
+    double mass;
     vector3 position;
+    vector3 velocity;
 } sphere;
 
 //Ray code
@@ -46,4 +46,3 @@ typedef struct ray_intersection {
 } ray_intersection;
 
 #endif //GEOMETRY_H
-

@@ -7,7 +7,7 @@
  * @param sphere_b
  * @return A vector from sphere b to sphere a with the calculated intensity
  */
-vector3 calculate_force(const sphere_with_mass sphere_a, const sphere_with_mass sphere_b) {
+vector3 calculate_force(const sphere sphere_a, const sphere sphere_b) {
     const vector3 vector_b_to_a = subtract_second_vector3_from_first(sphere_b.position, sphere_a.position);
 
     const double distance_squared = vector3_length_squared(vector_b_to_a);
@@ -19,7 +19,7 @@ vector3 calculate_force(const sphere_with_mass sphere_a, const sphere_with_mass 
     return vector3_multiply_by_scalar(vector_b_to_a, force_magnitude);
 }
 
-vector3 calculate_acceleration(const sphere_with_mass sphere, const vector3 force) {
+vector3 calculate_acceleration(const sphere sphere, const vector3 force) {
     return vector3_multiply_by_scalar(force, 1/sphere.mass);
 }
 
@@ -30,7 +30,7 @@ vector3 calculate_acceleration(const sphere_with_mass sphere, const vector3 forc
  * @param dt Time step
  * @return
  */
-void update_position_euler_semi_implicit(sphere_with_mass *sphere, const vector3 acceleration, const double dt) {
+void update_position_euler_semi_implicit(sphere *sphere, const vector3 acceleration, const double dt) {
 
     //printf("Time step dt = %.3f\n", dt);
     //printf("The acceleration of sphere3_m is x: %.3f, y: %.3f, z: %.3f\n", acceleration.x, acceleration.y, acceleration.z);
@@ -65,7 +65,7 @@ void update_position_euler_semi_implicit(sphere_with_mass *sphere, const vector3
  *         the sphere_a
  */
 vector3 calculate_total_acceleration_verlet(int subject_sphere_position,
-                                            sphere_with_mass spheres[],
+                                            sphere spheres[],
                                             int number_of_spheres) {
 
   vector3 total_force = {.x = 0, .y = 0, .z = 0};
@@ -109,7 +109,7 @@ vector3 calculate_total_acceleration_verlet(int subject_sphere_position,
  * @param dt Time step
  * @return
  */
-void update_position_velocity_verlet(int subject_sphere_position, sphere_with_mass spheres[], int number_of_spheres, double dt) {
+void update_position_velocity_verlet(int subject_sphere_position, sphere spheres[], int number_of_spheres, double dt) {
 
     const vector3 acceleration_t0 = calculate_total_acceleration_verlet(subject_sphere_position,
                                                                         spheres,

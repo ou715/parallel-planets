@@ -14,6 +14,7 @@
 #include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "dynamics/move.h"
 #include "mpi/mpi.h"
@@ -37,7 +38,7 @@ void simple_move_spheres(solid_colour_sphere *spheres, int t) {
 }
 
 int main(int argc, char **argv) {
-    char *output_root = argv[1];
+    char *io_path = argv[1];
 
     //MPI RELATED SETUP
 
@@ -54,6 +55,15 @@ int main(int argc, char **argv) {
     //Define custom MPI data type; will be used for communicating
     MPI_Datatype pixel_colour_type = create_pixel_colour_mpi_type();
     MPI_Datatype vector3_type = create_vector3_mpi_type();
+    MPI_Datatype sphere_type = create_sphere_mpi_type();
+    MPI_Datatype solid_colour_sphere_type = create_solid_colour_sphere_mpi_type();
+
+    //Fix padding for nested sphere type
+    MPI_Datatype fixed_type;
+    MPI_Aint lower_bound, old_extent;
+    MPI_Type_get_extent(solid_colour_sphere_type, &lower_bound, &old_extent);
+    MPI_Type_create_resized(solid_colour_sphere_type, lower_bound, sizeof(solid_colour_sphere), &fixed_type);
+    MPI_Type_commit(&fixed_type);
 
     //Define communicators
     MPI_Group world_group, ray_tracing_group, dynamics_group;
@@ -66,8 +76,6 @@ int main(int argc, char **argv) {
     MPI_Group_incl(world_group, ray_tracing_ranks_number, ray_tracing_ranks, &ray_tracing_group);
     MPI_Group_incl(world_group, dynamics_ranks_number, dynamics_ranks, &dynamics_group);
 
-    //MPI_Comm_create_group(MPI_COMM_WORLD, dynamics_group, 0, &dynamics_comm);
-
     int ray_tracing_rank, dynamics_rank;
     MPI_Group_rank(ray_tracing_group, &ray_tracing_rank);
     MPI_Group_rank(dynamics_group, &dynamics_rank);
@@ -75,36 +83,33 @@ int main(int argc, char **argv) {
     MPI_Barrier(MPI_COMM_WORLD);
 
     //IMAGE RELATED SETUP
-
     //TODO read these from an input file or command line
     const double aspect_ratio = 1.6; // almost as good as 4:3
-    const int image_height = ray_tracing_ranks_number * 144; //for even division of work; should be generalized
+    const int image_height = ray_tracing_ranks_number * 74; //for even division of work; should be generalized
     const int image_width = image_height * aspect_ratio;
 
     scene scene = scene_init(image_width, image_height);
     pixel_colour *image = malloc(image_width * image_height * sizeof(pixel_colour));
 
     //Useful information
-    //printf("The eye is positioned at x: %.2f, y: %.2f, z: %.2f\n", scene.eye_position.x, scene.eye_position.y, scene.eye_position.z);
 
     //Setup objects
-    //sphere sphere1 = {.radius = 5, .position = {.x = -12.0, .y = 3.0, .z = -20.0}};
-    //TODO Read object positions from a file at runtime
-    //solid_colour_sphere sphere2 = {.sphere = {.radius = 5, .position = {.x = -12.0, .y = 3.0, .z = -20.0}}, .colour = {.r = 0, .g = 255, .b = 0}};
-    solid_colour_sphere sphere3 = {.sphere = {.radius = 6, .position = {.x = 10.0, .y = -5.0, .z = -30.0}}, .colour = {.r = 0, .g = 255, .b = 0}};
-    solid_colour_sphere sphere4 = {.sphere = {.radius = 4, .position = {.x = -10.0, .y = 5.0, .z = -30.0}}, .colour = {.r = 150, .g = 0, .b = 0}};
-    solid_colour_sphere sphere5 = {.sphere = {.radius = 3, .position = {.x = -3.0, .y = 50.0, .z = -30.0}}, .colour = {.r = 50, .g = 0, .b = 255}};
-    solid_colour_sphere sphere6 = {.sphere = {.radius = 3, .position = {.x = 33.0, .y = -50.0, .z = -20.0}}, .colour = {.r = 150, .g = 150, .b = 150}};
-
-    sphere_with_mass sphere3_m = {.mass = 40, .position = sphere3.sphere.position, .velocity = {.x = 0.02, .y = 0.0075, .z = 0}};
-    sphere_with_mass sphere4_m = {.mass = 10, .position = sphere4.sphere.position, .velocity = {.x = 0.03, .y = 0.02, .z = 0}};
-    sphere_with_mass sphere5_m = {.mass = 10, .position = sphere5.sphere.position, .velocity = {.x = -0.05, .y = -0.05, .z = 0}};
-    sphere_with_mass sphere6_m = {.mass = 1, .position = sphere6.sphere.position, .velocity = {.x = -0.2, .y = -0.05, .z = 0.01}};
-
-    //TODO Consider merging dynamic and ray tracing spheres
+    //TODO Separate out the sphere count assignment. Will make the code less messy
     const int number_of_spheres = 4;
-    solid_colour_sphere spheres[4] = { sphere3, sphere4, sphere5, sphere6 };
-    sphere_with_mass spheres_mass[4] = { sphere3_m, sphere4_m, sphere5_m, sphere6_m };
+    solid_colour_sphere *spheres;
+    if (rank == 0) {
+        char sphere_input_path[PATH_MAX];
+        snprintf(sphere_input_path, sizeof(sphere_input_path), "%s/inputs/spheres.txt", io_path);
+        printf("Reading input from: %s\n", sphere_input_path);
+        read_sphere_configuration(sphere_input_path, &spheres);
+    } else {
+        spheres = malloc(number_of_spheres * sizeof(solid_colour_sphere));
+    }
+    if (!spheres) {
+        printf("Spheres arrays is not allocated for rank %d\n", rank);
+    }
+    //This one ampersand cost me 2 hours
+    MPI_Bcast(spheres, number_of_spheres, fixed_type, 0, MPI_COMM_WORLD);
 
     //Setup light
     //TODO Consider storing in a list, or a file
@@ -118,16 +123,26 @@ int main(int argc, char **argv) {
     double dt = 0.5;
 
     if (rank == 0) {
-        printf("START PROGRAM\n");
+        printf("START PROGRAM\n\n");
 
         printf("Image width is %d and image height is %d\n", image_width, image_height);
         printf("The eye is positioned at x: %.2f, y: %.2f, z: %.2f\n", scene.eye_position.x, scene.eye_position.y, scene.eye_position.z);
-        printf("Output root is: %s\n", output_root);
+        printf("Output root is: %s\n", io_path);
         printf("The number of time steps is: %d\n", number_of_time_steps);
         printf("The size of the time step is: %.5f\n", dt);
-
         printf("Rows per process:  %d\n", number_of_rows_per_process );
     }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    //TODO merge this with the main sphere struct array. Careful not to require rewrite if additional sphere types get added
+    //sphere *spheres_g = malloc(number_of_spheres * sizeof(sphere));
+    sphere spheres_g[4];
+    for (int m = 0; m < number_of_spheres; m++) {
+        spheres_g[m] = spheres[m].sphere;
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
     double start_time, elapsed_time;
     start_time = MPI_Wtime();
@@ -164,7 +179,7 @@ int main(int argc, char **argv) {
             //Actual work
             render_pixels(image_width, received_rows, number_of_rows_per_process, scene, spheres, number_of_spheres, point_light, partial_image, rank);
             //printf("All rendered\n");
-
+            //Combine partial images to root rank
             MPI_Gather(partial_image, pixels_to_receive, pixel_colour_type, image, pixels_to_receive, pixel_colour_type, 0, ray_tracing_comm);
 
             //Output
@@ -173,22 +188,20 @@ int main(int argc, char **argv) {
                 //printf("The position of sphere3_m is x: %.2f, y: %.2f, z: %.2f\n", sphere3_m.position.x, sphere3_m.position.y, sphere3_m.position.z);
                 char image_output_path[PATH_MAX];
                 if (t % 50 == 0) {
-                    snprintf(image_output_path, sizeof(image_output_path), "%s/outputs/video/image_%04d.png", output_root, t/50);
-
+                    snprintf(image_output_path, sizeof(image_output_path), "%s/outputs/video/image_%04d.png", io_path, t/50);
                     save_image_png(image, image_width, image_height, image_output_path);
                 }
 
                 vector3 new_position;
                 vector3 new_position2;
                 for (int b1 = 0; b1 < number_of_spheres; b1++) {
-                    MPI_Recv(&spheres_mass[b1].position, 3, vector3_type, 0, 0, messenger_com, MPI_STATUS_IGNORE);
+                    MPI_Recv(&spheres_g[b1].position, 3, vector3_type, 0, 0, messenger_com, MPI_STATUS_IGNORE);
                 }
             }
-
             //Update the other ranks about the position/velocity of the spheres
             for (int b1 = 0; b1 < number_of_spheres; b1++) {
-                MPI_Bcast(&spheres_mass[b1].position, 3, vector3_type, 0, ray_tracing_comm);
-                spheres[b1].sphere.position = spheres_mass[b1].position;
+                MPI_Bcast(&spheres_g[b1].position, 3, vector3_type, 0, ray_tracing_comm);
+                spheres[b1].sphere.position = spheres_g[b1].position;
             }
         }
         MPI_Barrier(ray_tracing_comm);
@@ -200,21 +213,20 @@ int main(int argc, char **argv) {
         }
     }
 
-
     if (dynamics_rank != MPI_UNDEFINED) {
         MPI_Comm_create_group(MPI_COMM_WORLD, dynamics_group, 0, &dynamics_comm);
         MPI_Intercomm_create(dynamics_comm, 0, MPI_COMM_WORLD, 1, 0, &messenger_com);
 
-        printf("World rank = %d : dynamics_rank = %d\n", rank, dynamics_rank);
+        printf("World rank = %d : dynamics_rank    = %d\n", rank, dynamics_rank);
         //printf("World rank %d: messenger_com = %d\n", rank, messenger_com);
-
         for (int t = 0; t < number_of_time_steps; t++) {
             //TEMPORARY ONLY USING 1
             //printf("Current time is %.1f\n", t*dt);
             if (dynamics_rank == 0) {
                 for (int b1 = 0; b1 < number_of_spheres; b1++) {
-                    update_position_velocity_verlet(b1, spheres_mass, number_of_spheres, dt);
-                    MPI_Send(&spheres_mass[b1].position, 3, vector3_type, 0, 0, messenger_com);
+                    update_position_velocity_verlet(b1, spheres_g, number_of_spheres, dt);
+                    MPI_Send(&spheres_g[b1].position, 3, vector3_type, 0, 0, messenger_com);
+                    //printf("Sending coordinates of sphere %d - x: %.2f y: %.2f z: %.2f\n", b1, spheres_g[b1].position.x, spheres_g[b1].position.y, spheres_g[b1].position.z);
                 }
             }
             MPI_Barrier(dynamics_comm);
@@ -229,10 +241,16 @@ int main(int argc, char **argv) {
     }
 
     free(image);
-
+    free(spheres);
+    //free(spheres_g);
     MPI_Group_free(&ray_tracing_group);
     MPI_Group_free(&dynamics_group);
+
     MPI_Type_free(&pixel_colour_type);
+    MPI_Type_free(&vector3_type);
+    MPI_Type_free(&sphere_type);
+    MPI_Type_free(&fixed_type);
+
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
 

@@ -5,7 +5,7 @@
 #include "geometry.h"
 #include <stdint.h>
 #include "../utils/scene.h"
-
+#include <stdio.h>
 typedef struct pixel_colour {
     uint8_t r;
     uint8_t g;
