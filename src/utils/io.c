@@ -37,7 +37,7 @@ void read_sphere_configuration(char *file_path, solid_colour_sphere **spheres) {
         fprintf(stderr, "Exiting\n");
         exit(EXIT_FAILURE);
     } else {
-        printf( "File opened succesfully! \n");
+        printf("Input file opened succesfully! \n");
     }
 
     int sphere_number;

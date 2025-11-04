@@ -38,11 +38,13 @@ void simple_move_spheres(solid_colour_sphere *spheres, int t) {
 }
 
 int main(int argc, char **argv) {
-    char *io_path = argv[1];
+
 
     //MPI RELATED SETUP
-
     MPI_Init(&argc, &argv);
+
+    char *input_file_name = argv[1];
+    char *io_path = argv[2];
 
     int rank, namelen;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -85,21 +87,20 @@ int main(int argc, char **argv) {
     //IMAGE RELATED SETUP
     //TODO read these from an input file or command line
     const double aspect_ratio = 1.6; // almost as good as 4:3
-    const int image_height = ray_tracing_ranks_number * 74; //for even division of work; should be generalized
+    const int image_height = ray_tracing_ranks_number * 72; //for even division of work; should be generalized
     const int image_width = image_height * aspect_ratio;
 
     scene scene = scene_init(image_width, image_height);
     pixel_colour *image = malloc(image_width * image_height * sizeof(pixel_colour));
 
-    //Useful information
-
     //Setup objects
     //TODO Separate out the sphere count assignment. Will make the code less messy
-    const int number_of_spheres = 4;
+    const int number_of_spheres = 2;
     solid_colour_sphere *spheres;
     if (rank == 0) {
         char sphere_input_path[PATH_MAX];
-        snprintf(sphere_input_path, sizeof(sphere_input_path), "%s/inputs/spheres.txt", io_path);
+        printf("START PROGRAM\n\n");
+        snprintf(sphere_input_path, sizeof(sphere_input_path), "%s/inputs/%s", io_path, input_file_name);
         printf("Reading input from: %s\n", sphere_input_path);
         read_sphere_configuration(sphere_input_path, &spheres);
     } else {
@@ -113,24 +114,26 @@ int main(int argc, char **argv) {
 
     //Setup light
     //TODO Consider storing in a list, or a file
+    //TODO Make the lights dynamic
     vector3 point_light = {.x = 0.0, .y = 1500.0, .z = -20.0};
 
     int number_of_rows_per_process = image_height / ray_tracing_ranks_number;
 
     int rows_to_process[image_height];
 
-    int number_of_time_steps = 18000;
-    double dt = 0.5;
+    //TODO Have these configured in input files
+    int number_of_time_steps = 32201;
+    double dt = 0.2;
 
     if (rank == 0) {
-        printf("START PROGRAM\n\n");
-
         printf("Image width is %d and image height is %d\n", image_width, image_height);
         printf("The eye is positioned at x: %.2f, y: %.2f, z: %.2f\n", scene.eye_position.x, scene.eye_position.y, scene.eye_position.z);
-        printf("Output root is: %s\n", io_path);
         printf("The number of time steps is: %d\n", number_of_time_steps);
         printf("The size of the time step is: %.5f\n", dt);
         printf("Rows per process:  %d\n", number_of_rows_per_process );
+        printf("Output root is: %s\n", io_path);
+
+        printf("START SIMULATION\n\n");
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -152,6 +155,7 @@ int main(int argc, char **argv) {
         MPI_Intercomm_create(ray_tracing_comm, 0, MPI_COMM_WORLD, 0, 0, &messenger_com);
         int received_rows[number_of_rows_per_process];
         int pixels_to_receive = image_width * number_of_rows_per_process; //also the number of total pixels per partial image
+        char image_output_path[PATH_MAX];
 
         if (ray_tracing_rank == 0) {
             //Sending data in consecutive rows. There are probably more efficient ways to split the work,
@@ -166,16 +170,11 @@ int main(int argc, char **argv) {
 
         MPI_Scatter(rows_to_process, number_of_rows_per_process, MPI_INT, received_rows,
         number_of_rows_per_process, MPI_INT, 0, ray_tracing_comm);
+        //printf("All scattered\n");
 
         //Main time loop
         for (int t = 0; t < number_of_time_steps; t++) {
             //printf("Total pixels to be processed by each process:  %d\n", pixels_to_receive );
-
-            if (partial_image == NULL) {
-                printf("Failed to allocate memory for partial image\n");
-            }
-            //printf("All scattered\n");
-
             //Actual work
             render_pixels(image_width, received_rows, number_of_rows_per_process, scene, spheres, number_of_spheres, point_light, partial_image, rank);
             //printf("All rendered\n");
@@ -186,14 +185,12 @@ int main(int argc, char **argv) {
             if (ray_tracing_rank == 0) {
                 //printf("The position of sphere3 is x: %.2f, y: %.2f, z: %.2f\n", sphere3.sphere.position.x, sphere3.sphere.position.y, sphere3.sphere.position.z);
                 //printf("The position of sphere3_m is x: %.2f, y: %.2f, z: %.2f\n", sphere3_m.position.x, sphere3_m.position.y, sphere3_m.position.z);
-                char image_output_path[PATH_MAX];
-                if (t % 50 == 0) {
-                    snprintf(image_output_path, sizeof(image_output_path), "%s/outputs/video/image_%04d.png", io_path, t/50);
+                //TODO Reduce the number of ray traced images, instead of just discarding them
+                if (t % 100 == 0) {
+                    snprintf(image_output_path, sizeof(image_output_path), "%s/outputs/video/image_%04d.png", io_path, t/100);
                     save_image_png(image, image_width, image_height, image_output_path);
                 }
 
-                vector3 new_position;
-                vector3 new_position2;
                 for (int b1 = 0; b1 < number_of_spheres; b1++) {
                     MPI_Recv(&spheres_g[b1].position, 3, vector3_type, 0, 0, messenger_com, MPI_STATUS_IGNORE);
                 }
@@ -218,11 +215,49 @@ int main(int argc, char **argv) {
         MPI_Intercomm_create(dynamics_comm, 0, MPI_COMM_WORLD, 1, 0, &messenger_com);
 
         printf("World rank = %d : dynamics_rank    = %d\n", rank, dynamics_rank);
+
+        char text_output_path[PATH_MAX];
+        FILE **text_output_files, *energy_output_file;
+        double kinetic_energy, potential_energy, total_energy;
+
+        if (dynamics_rank == 0) {
+            text_output_files = malloc(number_of_spheres * sizeof(FILE));
+            snprintf(text_output_path, sizeof(text_output_path), "%s/outputs/txt/system_energy_%s.txt", io_path, input_file_name);
+            energy_output_file = fopen(text_output_path, "w");
+            for (int o = 0; o < number_of_spheres; o++) {
+                snprintf(text_output_path, sizeof(text_output_path), "%s/outputs/txt/sphere_%s_%03d.txt", io_path, input_file_name, o);
+                text_output_files[o] = fopen(text_output_path, "w");
+            }
+        }
+
+
         //printf("World rank %d: messenger_com = %d\n", rank, messenger_com);
         for (int t = 0; t < number_of_time_steps; t++) {
             //TEMPORARY ONLY USING 1
             //printf("Current time is %.1f\n", t*dt);
             if (dynamics_rank == 0) {
+
+                for (int b1 = 0; b1 < number_of_spheres; b1++) {
+
+                    fprintf(text_output_files[b1], "%d %f %lf %lf %lf %lf %lf\n",
+                                                            t,
+                                                            spheres_g[b1].position.x,
+                                                            spheres_g[b1].position.y,
+                                                            spheres_g[b1].position.z,
+                                                            spheres_g[b1].velocity.x,
+                                                            spheres_g[b1].velocity.y,
+                                                            spheres_g[b1].velocity.z);
+
+                }
+                kinetic_energy = calculate_kinetic_energy(spheres_g, number_of_spheres);
+                potential_energy = calculate_potential_energy(spheres_g, number_of_spheres);
+                total_energy = kinetic_energy + potential_energy;
+                fprintf(energy_output_file, "%lf %lf %lf %lf\n",
+                                                        t * dt,
+                                                        kinetic_energy,
+                                                        potential_energy,
+                                                        total_energy);
+                //fwrite((double[]){ t * dt,kinetic_energy, potential_energy, total_energy}, sizeof(double), 4, energy_output_file);
                 for (int b1 = 0; b1 < number_of_spheres; b1++) {
                     update_position_velocity_verlet(b1, spheres_g, number_of_spheres, dt);
                     MPI_Send(&spheres_g[b1].position, 3, vector3_type, 0, 0, messenger_com);
@@ -233,6 +268,12 @@ int main(int argc, char **argv) {
         }
 
         MPI_Barrier(dynamics_comm);
+        if (dynamics_rank == 0) {
+            for (int o = 0; o < number_of_spheres; o++) {
+                fclose(text_output_files[o]);
+            }
+        }
+        fclose(energy_output_file);
         elapsed_time = MPI_Wtime()  - start_time;
 
         if (dynamics_rank == 0) {

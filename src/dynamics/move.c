@@ -1,5 +1,6 @@
 
 #include "move.h"
+#include <math.h>
 
 /**
  * Calculates the force on sphere a by sphere b
@@ -75,9 +76,10 @@ vector3 calculate_total_acceleration_verlet(int subject_sphere_position,
 
         const vector3 vector_a_to_b = subtract_second_vector3_from_first(spheres[i].position, spheres[subject_sphere_position].position);
         const double distance = vector3_length(vector_a_to_b);
-        if (distance > 10) {
-            const double distance_cubed = pow(distance, 3);
-            const double force_magnitude = gamma_const * (spheres[subject_sphere_position].mass * spheres[i].mass) / distance_cubed;
+        if (1/*distance > 10*/) {
+            const double softened_potential = pow(distance * distance + epsilon * epsilon, 1.5);
+            //const double distance_cubed = pow(distance, 3);
+            const double force_magnitude = gamma_const * (spheres[subject_sphere_position].mass * spheres[i].mass) / softened_potential;
 
             force = vector3_multiply_by_scalar(vector_a_to_b, force_magnitude);
             if (subject_sphere_position == 1 && i == 0) {
@@ -146,4 +148,32 @@ void update_position_velocity_verlet(int subject_sphere_position, sphere spheres
     spheres[subject_sphere_position].velocity.z += dv_z;
 
     //printf("The new position of sphere3_m is x: %.2f, y: %.2f, z: %.2f\n", spheres[subject_sphere_position].position.x, spheres[subject_sphere_position].position.y, spheres[subject_sphere_position].position.z);
+}
+
+double calculate_kinetic_energy(const sphere *spheres, int number_of_spheres) {
+    double kinetic_energy = 0;
+    double speed;
+    for (int i = 0; i < number_of_spheres; i++) {
+        speed = vector3_length(spheres[i].velocity);
+        kinetic_energy += 0.5 * spheres[i].mass * speed * speed;
+    }
+    return kinetic_energy;
+}
+
+/**
+ *
+ * @param spheres
+ * @param number_of_spheres
+ * @return the total potential energy accross all spheres
+ */
+double calculate_potential_energy(const sphere *spheres, int number_of_spheres) {
+    double potential_energy = 0;
+    double distance;
+    for (int i = 0; i < number_of_spheres - 1; i++) {
+        for (int j = i+1; j < number_of_spheres; j++) {
+            distance = vector3_length(subtract_second_vector3_from_first(spheres[i].position, spheres[j].position));
+            potential_energy += ( spheres[i].mass * spheres[j].mass) / sqrt(distance * distance + epsilon * epsilon);
+        }
+    }
+    return -gamma_const * potential_energy;
 }

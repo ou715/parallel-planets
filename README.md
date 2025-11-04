@@ -12,7 +12,7 @@ The goal of this program is to implement a (simple) ray tracer and parallelise i
 ### Goals
 - [x] Parallel (OpenMPI) ray tracing program
 - [x] Objects moving according to a law of motion (ODE Solver)
-- [ ] Outputs as text and video
+- [x] Outputs as text and video
 - [ ] Split work across a cluster (motion vs visualisation)
 - [ ] Camera movement
 
