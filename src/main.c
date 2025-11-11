@@ -43,8 +43,11 @@ int main(int argc, char **argv) {
     //MPI RELATED SETUP
     MPI_Init(&argc, &argv);
 
-    char *input_file_name = argv[1];
-    char *io_path = argv[2];
+    char *io_path = argv[1];
+    char *input_file_name = argv[2];
+    int number_of_time_steps = strtol(argv[3], NULL, 10);
+    double dt = atof(argv[4]);
+    int render_n = 100;
 
     int rank, namelen;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -61,11 +64,11 @@ int main(int argc, char **argv) {
     MPI_Datatype solid_colour_sphere_type = create_solid_colour_sphere_mpi_type();
 
     //Fix padding for nested sphere type
-    MPI_Datatype fixed_type;
+    MPI_Datatype fixed_solid_colour_sphere_type;
     MPI_Aint lower_bound, old_extent;
     MPI_Type_get_extent(solid_colour_sphere_type, &lower_bound, &old_extent);
-    MPI_Type_create_resized(solid_colour_sphere_type, lower_bound, sizeof(solid_colour_sphere), &fixed_type);
-    MPI_Type_commit(&fixed_type);
+    MPI_Type_create_resized(solid_colour_sphere_type, lower_bound, sizeof(solid_colour_sphere), &fixed_solid_colour_sphere_type);
+    MPI_Type_commit(&fixed_solid_colour_sphere_type);
 
     //Define communicators
     MPI_Group world_group, ray_tracing_group, dynamics_group;
@@ -95,22 +98,29 @@ int main(int argc, char **argv) {
 
     //Setup objects
     //TODO Separate out the sphere count assignment. Will make the code less messy
-    const int number_of_spheres = 2;
-    solid_colour_sphere *spheres;
+    char sphere_input_path[PATH_MAX];
+    snprintf(sphere_input_path, sizeof(sphere_input_path), "%s/inputs/%s", io_path, input_file_name);
+
+    int number_of_spheres;
     if (rank == 0) {
-        char sphere_input_path[PATH_MAX];
         printf("START PROGRAM\n\n");
-        snprintf(sphere_input_path, sizeof(sphere_input_path), "%s/inputs/%s", io_path, input_file_name);
         printf("Reading input from: %s\n", sphere_input_path);
-        read_sphere_configuration(sphere_input_path, &spheres);
-    } else {
-        spheres = malloc(number_of_spheres * sizeof(solid_colour_sphere));
+        number_of_spheres = read_sphere_number(sphere_input_path);
     }
+    //The number of spheres is needed to allocate the correct amount of
+    // memory to hold the sphere information
+    MPI_Bcast(&number_of_spheres, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    solid_colour_sphere *spheres = malloc(number_of_spheres * sizeof(solid_colour_sphere));
     if (!spheres) {
         printf("Spheres arrays is not allocated for rank %d\n", rank);
     }
-    //This one ampersand cost me 2 hours
-    MPI_Bcast(spheres, number_of_spheres, fixed_type, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        read_sphere_configuration(sphere_input_path, spheres, number_of_spheres);
+    }
+
+    MPI_Bcast(spheres, number_of_spheres, fixed_solid_colour_sphere_type, 0, MPI_COMM_WORLD);
 
     //Setup light
     //TODO Consider storing in a list, or a file
@@ -122,18 +132,20 @@ int main(int argc, char **argv) {
     int rows_to_process[image_height];
 
     //TODO Have these configured in input files
-    int number_of_time_steps = 32201;
-    double dt = 0.2;
+    //int number_of_time_steps = 322001;
 
     if (rank == 0) {
+        printf("\nImage rendering information:\n");
         printf("Image width is %d and image height is %d\n", image_width, image_height);
         printf("The eye is positioned at x: %.2f, y: %.2f, z: %.2f\n", scene.eye_position.x, scene.eye_position.y, scene.eye_position.z);
+        printf("Rows to be rendered by each process:  %d\n", number_of_rows_per_process );
+
+        printf("\nN body simulation information:\n");
         printf("The number of time steps is: %d\n", number_of_time_steps);
         printf("The size of the time step is: %.5f\n", dt);
-        printf("Rows per process:  %d\n", number_of_rows_per_process );
-        printf("Output root is: %s\n", io_path);
+        printf("\nOutput root is: %s\n", io_path);
 
-        printf("START SIMULATION\n\n");
+        printf("\nSTART SIMULATION\n");
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -175,19 +187,22 @@ int main(int argc, char **argv) {
         //Main time loop
         for (int t = 0; t < number_of_time_steps; t++) {
             //printf("Total pixels to be processed by each process:  %d\n", pixels_to_receive );
+            //
+            if (t % render_n == 0) {
+
             //Actual work
             render_pixels(image_width, received_rows, number_of_rows_per_process, scene, spheres, number_of_spheres, point_light, partial_image, rank);
             //printf("All rendered\n");
             //Combine partial images to root rank
             MPI_Gather(partial_image, pixels_to_receive, pixel_colour_type, image, pixels_to_receive, pixel_colour_type, 0, ray_tracing_comm);
-
+            }
             //Output
             if (ray_tracing_rank == 0) {
                 //printf("The position of sphere3 is x: %.2f, y: %.2f, z: %.2f\n", sphere3.sphere.position.x, sphere3.sphere.position.y, sphere3.sphere.position.z);
                 //printf("The position of sphere3_m is x: %.2f, y: %.2f, z: %.2f\n", sphere3_m.position.x, sphere3_m.position.y, sphere3_m.position.z);
                 //TODO Reduce the number of ray traced images, instead of just discarding them
-                if (t % 100 == 0) {
-                    snprintf(image_output_path, sizeof(image_output_path), "%s/outputs/video/image_%04d.png", io_path, t/100);
+                if (t % render_n == 0) {
+                    snprintf(image_output_path, sizeof(image_output_path), "%s/outputs/video/image_%04d.png", io_path, t/render_n);
                     save_image_png(image, image_width, image_height, image_output_path);
                 }
 
@@ -290,7 +305,7 @@ int main(int argc, char **argv) {
     MPI_Type_free(&pixel_colour_type);
     MPI_Type_free(&vector3_type);
     MPI_Type_free(&sphere_type);
-    MPI_Type_free(&fixed_type);
+    MPI_Type_free(&fixed_solid_colour_sphere_type);
 
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();

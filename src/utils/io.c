@@ -8,28 +8,30 @@
 #include <errno.h>
 #include "../../dependencies/stb_image_write.h"
 
-void save_image_png(const pixel_colour *image, int image_width, int image_height, char *filename) {
+/**
+ * This function writes an image to the specified path.
+ * Note: If the parent directory doesn't exist, this function will fail to save silently.
+ * @image The image to be saved
+ * @image_width
+ * @image_height
+ * @file_path The destination path of the .png image
+ */
+void save_image_png(const pixel_colour *image, int image_width, int image_height, char *file_path) {
     const int row_size_bytes = image_width * sizeof(pixel_colour);
     //printf("Image byte_stride is %d\n", row_size_bytes);
 
     //printf("Saving image to relative path %s\n", filename);
-    stbi_write_png(filename, image_width, image_height, 3, image, row_size_bytes);
+    stbi_write_png(file_path, image_width, image_height, 3, image, row_size_bytes);
     //stbi_write_bmp(filename, image_width, image_height, 3, image);
     //printf("Saving image to relative path %s\n", filename);
-
 }
 
-//TODO handle printf debugging more gracefully
 /**
- * Function which takes the information from a text file of a specific format and maps it into a sequence of solid_colour_sphere
- * The expected input format is
- * n
- * x y z vx vy vz rad r g b
- * Where xyz are coordinates, vxvyvz are corresponding velocities, rad is radius and rgb are 0-255 colour values
+ * This function takes a file path string and return an integer from the first line of that file
  * @param file_path File containing information about the spheres
- * @param[out] spheres The variable to write the information from the file
+ * @return The number specified in the first line of the input file
  */
-void read_sphere_configuration(char *file_path, solid_colour_sphere **spheres) {
+int read_sphere_number(char *file_path) {
     FILE *file = fopen(file_path, "r");
     if (!file) {
         fprintf(stderr, "File %s cannot be opened!\n", file_path);
@@ -37,9 +39,8 @@ void read_sphere_configuration(char *file_path, solid_colour_sphere **spheres) {
         fprintf(stderr, "Exiting\n");
         exit(EXIT_FAILURE);
     } else {
-        printf("Input file opened succesfully! \n");
+        //printf("Input file opened succesfully! Now reading the first line. \n");
     }
-
     int sphere_number;
     if (fscanf(file, "%d", &sphere_number) != 1) {
         fprintf(stderr, "Number of sphere is incorrectly specified! It should be a string at the start of the file\n");
@@ -48,58 +49,80 @@ void read_sphere_configuration(char *file_path, solid_colour_sphere **spheres) {
     } else {
         printf("The number of input spheres is %d\n", sphere_number);
     }
+    fclose(file);
+    return sphere_number;
+}
 
-    *spheres = malloc(sphere_number * sizeof(solid_colour_sphere));
-    if (!&(*spheres)) {
-        printf("Spheres memory was not allocated!\n");
+//TODO handle printf debugging more gracefully
+/**
+ * Function which takes the information from a text file of a specific format and maps it into a sequence of solid_colour_sphere
+ * x y z vx vy vz rad r g b
+ * Where xyz are coordinates, vxvyvz are corresponding velocities, rad is radius and rgb are 0-255 colour values
+ * @param file_path File containing information about the spheres
+ * @param number_of_spheres The number of spheres in the file
+ * @param[out] spheres The variable to write the information from the file
+ */
+void read_sphere_configuration(char *file_path, solid_colour_sphere *spheres, int number_of_spheres) {
+    FILE *file = fopen(file_path, "r");
+    if (!file) {
+        fprintf(stderr, "File %s cannot be opened!\n", file_path);
+        printf("Error %d: %s\n", errno, strerror(errno));
+        fprintf(stderr, "Exiting\n");
+        exit(EXIT_FAILURE);
+    } else {
+        //printf("Input file opened succesfully! Now reading the remaining %d lines\n", number_of_spheres);
+    }
+    //TODO handle skipping the number of spheres in a more elegant fashion
+    char buffer[256];
+    if (fgets(buffer, sizeof(buffer), file) == NULL) {
+        printf("The first line of the file is empty, while it should contain the number of spheres!\n");
     }
 
-    for (int i = 0; i < sphere_number; i++) {
+    for (int i = 0; i < number_of_spheres; i++) {
         //printf("Mapping sphere %d\n", i);
-        if (fscanf(file, "%lf %lf %lf %lf %lf %lf", &(*spheres)[i].sphere.position.x,
-                                                &(*spheres)[i].sphere.position.y,
-                                                &(*spheres)[i].sphere.position.z,
-                                                &(*spheres)[i].sphere.velocity.x,
-                                                &(*spheres)[i].sphere.velocity.y,
-                                                &(*spheres)[i].sphere.velocity.z) != 6) {
+        if (fscanf(file, "%lf %lf %lf %lf %lf %lf", &spheres[i].sphere.position.x,
+                                                    &spheres[i].sphere.position.y,
+                                                    &spheres[i].sphere.position.z,
+                                                    &spheres[i].sphere.velocity.x,
+                                                    &spheres[i].sphere.velocity.y,
+                                                    &spheres[i].sphere.velocity.z) != 6) {
                                                     fprintf(stderr, "Error - first 6 entries in each row should be doubles, denoting position and velocity.\n");
                                                     fprintf(stderr, "Exiting\n");
                                                     exit(EXIT_FAILURE);
                                                 } else {
-                                                    //printf("The velocity of sphere3_m is x: %.2f, y: %.2f, z: %.2f\n", spheres[i]->sphere.velocity.x,
-                                                    //  spheres[i]->sphere.velocity.y, spheres[i]->sphere.velocity.z);
+                                                    // printf("The velocity of sphere3_m is x: %.2f, y: %.2f, z: %.2f\n", spheres[i].sphere.velocity.x,
+                                                    //  spheres[i].sphere.velocity.y, spheres[i].sphere.velocity.z);
                                                 }
 
-        if (fscanf(file, "%lf", &(*spheres)[i].sphere.radius) != 1) {
+        if (fscanf(file, "%lf", &spheres[i].sphere.radius) != 1) {
             fprintf(stderr, "Error - the 7th entry should be the radius of the sphere.\n");
             fprintf(stderr, "Exiting\n");
             exit(EXIT_FAILURE);
         } else {
-            //printf("The radius of the sphere is %.2f\n", spheres[i]->sphere.radius);
+            //printf("The radius of the sphere %d is %.2f\n", i, spheres[i].sphere.radius);
         }
 
-        if (fscanf(file, "%lf", &(*spheres)[i].sphere.mass) != 1) {
+        if (fscanf(file, "%lf", &spheres[i].sphere.mass) != 1) {
             fprintf(stderr, "Error - the 8th entry should be the mass of the sphere\n");
             fprintf(stderr, "Exiting\n");
             exit(EXIT_FAILURE);
         } else {
-            //printf("The mass of the sphere is %.2f\n", spheres[i]->sphere.mass);
+            //printf("The mass of the sphere %d is %.2f\n", i, spheres[i].sphere.mass);
         }
 
-        if (fscanf(file, "%hhu %hhu %hhu ", &(*spheres)[i].colour.r,
-                                            &(*spheres)[i].colour.g,
-                                            &(*spheres)[i].colour.b) != 3) {
+        if (fscanf(file, "%hhu %hhu %hhu ", &spheres[i].colour.r,
+                                            &spheres[i].colour.g,
+                                            &spheres[i].colour.b) != 3) {
                                             fprintf(stderr, "Error - entries 9, 10 and 11 should be integers lower than 256, denoting rgb values\n");
                                             fprintf(stderr, "Exiting\n");
                                             exit(EXIT_FAILURE);
         } else {
-            //printf("The colour of the sphere is %i %i %i\n", spheres[i]->colour.r, spheres[i]->colour.g, spheres[i]->colour.b);
+            //printf("The colour of the sphere is %i %i %i\n", spheres[i].colour.r, spheres[i].colour.g, spheres[i].colour.b);
         }
         //printf("Done mapping sphere %d\n", i);
     }
-    // printf("Succesfully loaded %i spheres!\n", sphere_number);
-    //  printf("The colour of the sphere is %i %i %i\n", spheres[0]->colour.r, spheres[0]->colour.g, spheres[0]->colour.b);
-    // printf("The colour of the sphere is %.2f %.2f %.2f\n", spheres[0]->sphere.velocity.x, spheres[0]->sphere.velocity.x, spheres[0]->sphere.velocity.x);
-
+    //printf("Succesfully loaded %i spheres!\n", number_of_spheres);
+    // printf("The position of the sphere 1 is %i %i %i\n",spheres[0]->colour.r, spheres[0]->colour.g, spheres[0]->colour.b);
+    // printf("The velocity of the sphere 1 is %.2f %.2f %.2f\n", spheres[0]->sphere.velocity.x, spheres[0]->sphere.velocity.x, spheres[0]->sphere.velocity.x);
     fclose(file);
 }
