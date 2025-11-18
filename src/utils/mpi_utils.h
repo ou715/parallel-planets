@@ -2,6 +2,7 @@
 #define MPI_UTILS_H
 #include <mpi/mpi.h>
 #include "../ray-tracing/ray_trace.h"
+
 MPI_Datatype create_pixel_colour_mpi_type(void);
 MPI_Datatype create_vector3_mpi_type(void);
 MPI_Datatype create_sphere_mpi_type(void);

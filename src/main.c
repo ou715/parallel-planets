@@ -11,10 +11,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+#define _GNU_SOURCE
 #include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "dynamics/move.h"
 #include "mpi/mpi.h"
@@ -30,12 +32,20 @@ int main(int argc, char **argv) {
     //MPI RELATED SETUP
     MPI_Init(&argc, &argv);
 
-    //TODO handle these in a more proper way, using -- options
-    char *io_path = argv[1];
-    char *input_file_name = argv[2];
-    int number_of_time_steps = strtol(argv[3], NULL, 10);
-    double dt = atof(argv[4]);
+    option_arguments option_arguments;
+
+    static char doc[] = "N body simulation using OpenMPI";
+    struct argp argp = {options, parse_options, 0, doc};
+    argp_parse(&argp, argc, argv, 0, 0, &option_arguments);
+
+    char *output_root = option_arguments.output_directory;
+    char *sphere_input_path = option_arguments.sphere_input_file;
+    int number_of_time_steps = option_arguments.number_of_steps;
+    double dt = option_arguments.step_size;
+
     int render_n = 100; //Determines how often does a simulation step gets rendered
+
+    char *input_file_name = basename(sphere_input_path);
 
     int rank, namelen;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -88,11 +98,8 @@ int main(int argc, char **argv) {
     pixel_colour *image = malloc(image_width * image_height * sizeof(pixel_colour));
 
     //Setup objects
-    char sphere_input_path[PATH_MAX];
-    snprintf(sphere_input_path, sizeof(sphere_input_path), "%s/inputs/%s", io_path, input_file_name);
 
     int number_of_spheres;
-    //TODO the reading of sphere configuration to a separate function
     if (rank == 0) {
         printf("START PROGRAM\n\n");
         printf("Reading input from: %s\n", sphere_input_path);
@@ -133,7 +140,7 @@ int main(int argc, char **argv) {
         printf("\nN body simulation information:\n");
         printf("The number of time steps is: %d\n", number_of_time_steps);
         printf("The size of the time step is: %.5f\n", dt);
-        printf("\nOutput root is: %s\n", io_path);
+        printf("\nOutput root is: %s\n", output_root);
 
         printf("\nSTART SIMULATION\n");
     }
@@ -191,7 +198,7 @@ int main(int argc, char **argv) {
                 //printf("The position of sphere3 is x: %.2f, y: %.2f, z: %.2f\n", sphere3.sphere.position.x, sphere3.sphere.position.y, sphere3.sphere.position.z);
                 //printf("The position of sphere3_m is x: %.2f, y: %.2f, z: %.2f\n", sphere3_m.position.x, sphere3_m.position.y, sphere3_m.position.z);
                 if (t % render_n == 0) {
-                    snprintf(image_output_path, sizeof(image_output_path), "%s/outputs/video/image_%04d.png", io_path, t/render_n);
+                    snprintf(image_output_path, sizeof(image_output_path), "%s/video/image_%04d.png", output_root, t/render_n);
                     save_image_png(image, image_width, image_height, image_output_path);
                 }
 
@@ -228,10 +235,10 @@ int main(int argc, char **argv) {
 
         if (dynamics_rank == 0) {
             text_output_files = malloc(number_of_spheres * sizeof(FILE));
-            snprintf(text_output_path, sizeof(text_output_path), "%s/outputs/txt/system_energy_%s.txt", io_path, input_file_name);
+            snprintf(text_output_path, sizeof(text_output_path), "%s/txt/system_energy_%s.txt", output_root, input_file_name);
             energy_output_file = fopen(text_output_path, "w");
             for (int o = 0; o < number_of_spheres; o++) {
-                snprintf(text_output_path, sizeof(text_output_path), "%s/outputs/txt/sphere_%s_%03d.txt", io_path, input_file_name, o);
+                snprintf(text_output_path, sizeof(text_output_path), "%s/txt/sphere_%s_%03d.txt", output_root, input_file_name, o);
                 text_output_files[o] = fopen(text_output_path, "w");
             }
         }

@@ -126,3 +126,24 @@ void read_sphere_configuration(char *file_path, solid_colour_sphere *spheres, in
     // printf("The velocity of the sphere 1 is %.2f %.2f %.2f\n", spheres[0]->sphere.velocity.x, spheres[0]->sphere.velocity.x, spheres[0]->sphere.velocity.x);
     fclose(file);
 }
+
+error_t parse_options(int key, char *arg, struct argp_state *state) {
+   	struct option_arguments *arguments = state->input;
+
+    switch (key) {
+        case 'o':
+            arguments->output_directory = arg;
+            break;
+        case 'i':
+            arguments->sphere_input_file = arg;
+            break;
+        case 'n':
+            arguments->number_of_steps = atoi(arg);
+            break;
+        case 'h':
+            arguments->step_size = atof(arg);
+            break;
+    }
+
+    return 0;
+}
