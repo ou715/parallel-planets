@@ -22,6 +22,7 @@ add_executable(parallel-planets src/main.c
         src/dynamics/move.h
 )
 
+target_compile_options(parallel-planets PRIVATE -march=native)
 
 find_library(MATH_LIBRARY m)
 if(MATH_LIBRARY)

@@ -1,1 +1,1 @@
-mpiexec -n "$2" ./cmake-build-release/parallel-planets "$(pwd)" 2body 300000 0.2
+mpiexec -n "$2" ./cmake-build-release/parallel-planets "$(pwd)" orig_in 30000 0.01

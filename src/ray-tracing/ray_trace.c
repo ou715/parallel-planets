@@ -28,14 +28,29 @@ ray_intersection sphere_intersect(const sphere sphere, const ray ray) {
 
 hit_sphere intersected_sphere_index(const ray ray, const solid_colour_sphere *spheres, int number_of_spheres ) {
     hit_sphere potential_hit_sphere = {.sphere_index = -1};
-
+    hit_sphere *potential_hit_spheres = malloc(number_of_spheres * sizeof(hit_sphere));
+    int hits = 0;
     for (int i = 0; i < number_of_spheres; i++) {
         ray_intersection intersection = sphere_intersect(spheres[i].sphere, ray);
         if (intersection.intersects == 1) {
-            potential_hit_sphere.sphere_index = i;
-            potential_hit_sphere.ray_intersection = intersection;
+            // potential_hit_sphere.sphere_index = i;
+            // potential_hit_sphere.ray_intersection = intersection;
+            potential_hit_spheres[hits].sphere_index = i;
+            potential_hit_spheres[hits].ray_intersection = intersection;
+            hits++;
         }
     }
+
+    //Find closest intersection
+    if (hits > 0) {
+        potential_hit_sphere = potential_hit_spheres[0];
+        for (int h = 0; h < hits; h++) {
+            if (potential_hit_spheres[h].ray_intersection.t < potential_hit_sphere.ray_intersection.t) {
+                potential_hit_sphere = potential_hit_spheres[h];
+            }
+        }
+    }
+    free(potential_hit_spheres);
     return potential_hit_sphere;
 }
 

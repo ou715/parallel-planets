@@ -1,6 +1,18 @@
-
 #include "move.h"
 #include <math.h>
+
+/**
+ * Useful for prototyping
+ * @param spheres List of sphere to update
+ * @param t time step
+ */
+void simple_move_spheres(sphere *spheres, int t) {
+    sphere sphere = spheres[1];
+    sphere.position.x += sin(t) + 1;
+    sphere.position.y += sin(t) + 1;
+    sphere.position.z += cos(t) + 1;;
+    spheres[1] = sphere;
+}
 
 /**
  * Calculates the force on sphere a by sphere b

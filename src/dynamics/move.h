@@ -7,6 +7,7 @@
 #define gamma_const 1
 #define epsilon 0
 
+void simple_move_spheres(sphere *spheres, int t);
 vector3 calculate_force(sphere sphere_a, sphere sphere_b);
 vector3 calculate_acceleration(sphere sphere, vector3 force);
 void update_position_euler_semi_implicit(sphere *sphere, vector3 acceleration, double dt);
