@@ -1,1 +1,1 @@
-./build.sh "$@" && ./mpiRun.sh
+./build.sh "$@" && ./mpiRun.sh "$@"

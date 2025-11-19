@@ -40,6 +40,7 @@ int main(int argc, char **argv) {
 
     char *output_root = option_arguments.output_directory;
     char *sphere_input_path = option_arguments.sphere_input_file;
+    char *ranks_config_input_path = option_arguments.ranks_file;
     int number_of_time_steps = option_arguments.number_of_steps;
     double dt = option_arguments.step_size;
 
@@ -72,13 +73,44 @@ int main(int argc, char **argv) {
     MPI_Group world_group, ray_tracing_group, dynamics_group;
     MPI_Comm_group(MPI_COMM_WORLD, &world_group);
 
-    int ray_tracing_ranks_number = 5, dynamics_ranks_number = 1;
-    //int *ray_tracing_ranks = malloc(5 * sizeof(pixel_colour)){1, 2, 3, 4, 5};
-    int ray_tracing_ranks[5] = {1, 2, 3, 4, 5};
+    int ray_tracing_ranks_number;
+    int dynamics_ranks_number;
+    int *ray_tracing_ranks;
+    int *dynamics_ranks;
+    rank_configuration input_rank_configuration;
 
-    int dynamics_ranks[1] = {0};
+    if (rank == 0) {
+        printf("START PROGRAM\n\n");
+        printf("=================================\n");
+        printf("Rank input file path: %s \n", ranks_config_input_path);
+        input_rank_configuration = read_rank_configuration(ranks_config_input_path);
+        ray_tracing_ranks_number = input_rank_configuration.number_of_ray_tracing_ranks;
+        dynamics_ranks_number = input_rank_configuration.number_of_dynamic_ranks;
+        ray_tracing_ranks = input_rank_configuration.ray_tracing_ranks;
+        dynamics_ranks = input_rank_configuration.dynamic_ranks;
+
+        printf("Cores allocated to of dynamic calculations: %i \n", dynamics_ranks_number);
+        printf("Cores allocated to of ray tracing calculations: %i \n", ray_tracing_ranks_number);
+
+        //printf("Input rank configuration mapped!\n");
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    MPI_Bcast(&ray_tracing_ranks_number, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&dynamics_ranks_number, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    // printf("N of dynamic ranks is : %d \n\n", dynamics_ranks_number);
+    // printf("N of rt ranks is : %d \n\n", ray_tracing_ranks_number);
+
+    if (rank != 0) {
+        ray_tracing_ranks = malloc(ray_tracing_ranks_number * sizeof(int));
+        dynamics_ranks = malloc(dynamics_ranks_number * sizeof(int));
+    }
+
+    MPI_Bcast(ray_tracing_ranks, ray_tracing_ranks_number, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(dynamics_ranks, dynamics_ranks_number, MPI_INT, 0, MPI_COMM_WORLD);
 
     MPI_Comm ray_tracing_comm, dynamics_comm, messenger_com;
+
     MPI_Group_incl(world_group, ray_tracing_ranks_number, ray_tracing_ranks, &ray_tracing_group);
     MPI_Group_incl(world_group, dynamics_ranks_number, dynamics_ranks, &dynamics_group);
 
@@ -98,14 +130,14 @@ int main(int argc, char **argv) {
     pixel_colour *image = malloc(image_width * image_height * sizeof(pixel_colour));
 
     //Setup objects
-
     int number_of_spheres;
     if (rank == 0) {
-        printf("START PROGRAM\n\n");
-        printf("Reading input from: %s\n", sphere_input_path);
+        printf("=================================\n");
+        printf("Reading sphere initial values from: %s\n", sphere_input_path);
         number_of_spheres = read_sphere_number(sphere_input_path);
+        printf("The number of input spheres: %d\n", number_of_spheres);
     }
-    //The number of spheres is needed to allocate the correct amount of
+    //The number_of_spheres is needed to allocate the correct amount of
     // memory to hold the sphere information
     MPI_Bcast(&number_of_spheres, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -173,7 +205,7 @@ int main(int argc, char **argv) {
             allocate_rows_to_processes_blocks(image_height, rows_to_process);
         }
 
-        printf("World rank = %d : ray_tracing_rank = %d\n", rank, ray_tracing_rank);
+        //printf("World rank = %d : ray_tracing_rank = %d\n", rank, ray_tracing_rank);
 
         pixel_colour *partial_image = malloc(pixels_to_receive * sizeof(pixel_colour));
 
@@ -227,7 +259,7 @@ int main(int argc, char **argv) {
         MPI_Comm_create_group(MPI_COMM_WORLD, dynamics_group, 0, &dynamics_comm);
         MPI_Intercomm_create(dynamics_comm, 0, MPI_COMM_WORLD, 1, 0, &messenger_com);
 
-        printf("World rank = %d : dynamics_rank    = %d\n", rank, dynamics_rank);
+        //printf("World rank = %d : dynamics_rank    = %d\n", rank, dynamics_rank);
 
         char text_output_path[PATH_MAX];
         FILE **text_output_files, *energy_output_file;

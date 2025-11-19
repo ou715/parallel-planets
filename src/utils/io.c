@@ -47,7 +47,7 @@ int read_sphere_number(char *file_path) {
         fprintf(stderr, "Exiting\n");
         exit(EXIT_FAILURE);
     } else {
-        printf("The number of input spheres is %d\n", sphere_number);
+        //printf("The number of input spheres is %d\n", sphere_number);
     }
     fclose(file);
     return sphere_number;
@@ -127,6 +127,68 @@ void read_sphere_configuration(char *file_path, solid_colour_sphere *spheres, in
     fclose(file);
 }
 
+//TODO handle printf debugging more gracefully
+/**
+ * Function which takes the information from a text file of a specific format and maps it into a struct rank_configuration
+ * Example input
+ * 4
+ * 0 1 2 3
+ * 2
+ * 4 5
+ * Where xyz are coordinates, vxvyvz are corresponding velocities, rad is radius and rgb are 0-255 colour values
+ * @param file_path File containing information about the spheres
+ * @return A struct containing the count and arrays of dynamic and ray tracing ranks
+ */
+rank_configuration read_rank_configuration(char *file_path) {
+    FILE *file = fopen(file_path, "r");
+    rank_configuration input_rank_configuration;
+
+    if (fscanf(file, "%i", &input_rank_configuration.number_of_ray_tracing_ranks) != 1) {
+        fprintf(stderr, "Number of ray tracing ranks is incorrectly specified! It should be an integer on line 1\n");
+        fprintf(stderr, "Exiting\n");
+        exit(EXIT_FAILURE);
+    } else {
+        //printf("The number of dynamic ranks is %d\n", input_rank_configuration.number_of_ray_tracing_ranks);
+    }
+
+    int *ray_tracing_ranks = malloc(input_rank_configuration.number_of_ray_tracing_ranks * sizeof(int));
+
+    for (int i = 0; i < input_rank_configuration.number_of_ray_tracing_ranks; i++) {
+        if (fscanf(file, "%i", &ray_tracing_ranks[i]) != 1) {
+            fprintf(stderr, "Dynamic rank incorrectly specified! It should be an integer\n");
+            fprintf(stderr, "Exiting\n");
+            exit(EXIT_FAILURE);
+        } else {
+            //printf("The %d th ray tracing rank is - %d\n", i, ray_tracing_ranks[i]);
+        }
+    }
+
+    if (fscanf(file, "%i", &input_rank_configuration.number_of_dynamic_ranks) != 1) {
+        fprintf(stderr, "Number of ray tracing ranks is incorrectly specified! It should be an integer on line 3\n");
+        fprintf(stderr, "Exiting\n");
+        exit(EXIT_FAILURE);
+    } else {
+        //printf("The number of ray tracing ranks is %d\n", input_rank_configuration.number_of_dynamic_ranks);
+    }
+
+    int *dynamic_ranks = malloc(input_rank_configuration.number_of_dynamic_ranks * sizeof(int));
+
+    for (int i = 0; i < input_rank_configuration.number_of_dynamic_ranks; i++) {
+        if (fscanf(file, "%i", &dynamic_ranks[i]) != 1) {
+            fprintf(stderr, "Dynamic rank incorrectly specified! It should be an integer\n");
+            fprintf(stderr, "Exiting\n");
+            exit(EXIT_FAILURE);
+        } else {
+           // printf("The %d dynamic th rank is - %d\n", i, dynamic_ranks[i]);
+        }
+    }
+    input_rank_configuration.ray_tracing_ranks = ray_tracing_ranks;
+    input_rank_configuration.dynamic_ranks = dynamic_ranks;
+    //printf("Returning ranking configuration - read_rank_configuration\n");
+
+    return input_rank_configuration;
+}
+
 error_t parse_options(int key, char *arg, struct argp_state *state) {
    	struct option_arguments *arguments = state->input;
 
@@ -143,7 +205,9 @@ error_t parse_options(int key, char *arg, struct argp_state *state) {
         case 'h':
             arguments->step_size = atof(arg);
             break;
+        case 'r':
+            arguments->ranks_file = arg;
+            break;
     }
-
     return 0;
 }

@@ -11,7 +11,7 @@ static struct argp_option options[] = {
     {"sphere_input_file", 'i', "INPUT_FILE_PATH", 0, "Path to file containing sphere coordinates"},
     {"n_steps", 'n', "NUMBER_OF_STEPS", 0, "Number of steps to run the simulation for"},
     {"step_size", 'h', "STEP SIZE", 0, "Size of a single step"},
-    //{"rank_file", 'r', "VALUE", 0, "Size of a single step"},
+    {"rank_file", 'r', "VALUE", 0, "Path to rank configuration file"},
     {0}
 };
 
@@ -23,8 +23,17 @@ typedef struct option_arguments {
     char *ranks_file;
 } option_arguments;
 
+typedef struct rank_configuration {
+    int number_of_ray_tracing_ranks;
+    int *ray_tracing_ranks;
+    int number_of_dynamic_ranks;
+    int *dynamic_ranks;
+} rank_configuration;
+
 void save_image_png(const pixel_colour *image, int image_width, int image_height, char *filename);
 int read_sphere_number(char *file_path);
 void read_sphere_configuration(char *file_path, solid_colour_sphere *spheres, int number_of_spheres);
+rank_configuration read_rank_configuration(char *file_path);
 error_t parse_options(int key, char *arg, struct argp_state *state);
+
 #endif //IO_H
