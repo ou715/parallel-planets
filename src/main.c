@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     int number_of_time_steps = option_arguments.number_of_steps;
     double dt = option_arguments.step_size;
 
-    int render_n = 100; //Determines how often does a simulation step gets rendered
+    int render_n = 1000; //Determines how often does a simulation step gets rendered
 
     char *input_file_name = basename(sphere_input_path);
 
@@ -89,8 +89,8 @@ int main(int argc, char **argv) {
         ray_tracing_ranks = input_rank_configuration.ray_tracing_ranks;
         dynamics_ranks = input_rank_configuration.dynamic_ranks;
 
-        printf("Cores allocated to of dynamic calculations: %i \n", dynamics_ranks_number);
-        printf("Cores allocated to of ray tracing calculations: %i \n", ray_tracing_ranks_number);
+        printf("Cores allocated to dynamic calculations: %i \n", dynamics_ranks_number);
+        printf("Cores allocated to ray tracing calculations: %i \n", ray_tracing_ranks_number);
 
         //printf("Input rank configuration mapped!\n");
     }
@@ -139,6 +139,7 @@ int main(int argc, char **argv) {
     }
     //The number_of_spheres is needed to allocate the correct amount of
     // memory to hold the sphere information
+
     MPI_Bcast(&number_of_spheres, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     solid_colour_sphere *spheres = malloc(number_of_spheres * sizeof(solid_colour_sphere));
@@ -150,6 +151,7 @@ int main(int argc, char **argv) {
         read_sphere_configuration(sphere_input_path, spheres, number_of_spheres);
     }
 
+    //CAUSES SEGMENTATION FAULT WITHOUT -o3
     MPI_Bcast(spheres, number_of_spheres, fixed_solid_colour_sphere_type, 0, MPI_COMM_WORLD);
 
     //Setup light
@@ -158,7 +160,6 @@ int main(int argc, char **argv) {
     vector3 point_light = {.x = 0.0, .y = 1500.0, .z = -20.0};
 
     int number_of_rows_per_process = image_height / ray_tracing_ranks_number;
-
     int rows_to_process[image_height];
 
     if (rank == 0) {
@@ -179,8 +180,9 @@ int main(int argc, char **argv) {
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    //TODO merge this with the main sphere struct array. Careful not to require rewrite if additional sphere types get added
+    //TODO Find out why is a dynamic array causing segmentation fault when finalizing
     //sphere *spheres_g = malloc(number_of_spheres * sizeof(sphere));
+    //TODO merge this with the main sphere struct array. Careful not to require rewrite if additional sphere types get added
     sphere spheres_g[4];
     for (int m = 0; m < number_of_spheres; m++) {
         spheres_g[m] = spheres[m].sphere;
@@ -194,7 +196,7 @@ int main(int argc, char **argv) {
     if (ray_tracing_rank != MPI_UNDEFINED) {
         MPI_Comm_create_group(MPI_COMM_WORLD, ray_tracing_group, 0, &ray_tracing_comm);
         MPI_Intercomm_create(ray_tracing_comm, 0, MPI_COMM_WORLD, 0, 0, &messenger_com);
-        int received_rows[number_of_rows_per_process];
+        int *received_rows = malloc(number_of_rows_per_process * sizeof(int));
         int pixels_to_receive = image_width * number_of_rows_per_process; //also the number of total pixels per partial image
         char image_output_path[PATH_MAX];
 
@@ -210,7 +212,7 @@ int main(int argc, char **argv) {
         pixel_colour *partial_image = malloc(pixels_to_receive * sizeof(pixel_colour));
 
         MPI_Scatter(rows_to_process, number_of_rows_per_process, MPI_INT, received_rows,
-        number_of_rows_per_process, MPI_INT, 0, ray_tracing_comm);
+                    number_of_rows_per_process, MPI_INT, 0, ray_tracing_comm);
         //printf("All scattered\n");
 
         //Main time loop
@@ -261,6 +263,23 @@ int main(int argc, char **argv) {
 
         //printf("World rank = %d : dynamics_rank    = %d\n", rank, dynamics_rank);
 
+        //Holds a list of integers that will be used for indexing spheres
+        int *all_sphere_indices = malloc(number_of_spheres * sizeof(int));
+        int equal_parts = number_of_spheres / dynamics_ranks_number;
+
+        int local_sphere_count = equal_parts + (number_of_spheres % dynamics_ranks_number) * (dynamics_ranks_number % (dynamics_rank + 1));
+        //printf("-local_sphere_count %i\n", local_sphere_count);
+
+
+        for (int i = 0; i < local_sphere_count; i++) {
+            all_sphere_indices[i] = dynamics_rank * equal_parts + i;
+            //printf("Dynamics rank %i is being allocated sphere with index %i\n", dynamics_rank, dynamics_rank * equal_parts + i);
+        }
+
+        sphere *spheres_to_update = malloc(local_sphere_count * sizeof(sphere));
+        MPI_Scatter(spheres_g, local_sphere_count, sphere_type, spheres_to_update,
+                    local_sphere_count, sphere_type, 0, dynamics_comm);
+
         char text_output_path[PATH_MAX];
         FILE **text_output_files, *energy_output_file;
         double kinetic_energy, potential_energy, total_energy;
@@ -301,12 +320,24 @@ int main(int argc, char **argv) {
                                                         kinetic_energy,
                                                         potential_energy,
                                                         total_energy);
+            }
+            for (int b1 = 0; b1 < local_sphere_count; b1++) {
+                update_position_velocity_verlet(&spheres_to_update[b1], all_sphere_indices[b1], spheres_g, number_of_spheres, dt);
+            }
+
+            MPI_Allgather(spheres_to_update, local_sphere_count, sphere_type, spheres_g,
+                                          local_sphere_count, sphere_type, dynamics_comm);
+
+            if (dynamics_rank == 0) {
+                //TODO send an array instead
                 for (int b1 = 0; b1 < number_of_spheres; b1++) {
-                    update_position_velocity_verlet(b1, spheres_g, number_of_spheres, dt);
+                    //printf("Accessing sphere %i\n", b1);
+                    //Potential stack-buffer-overflow
                     MPI_Send(&spheres_g[b1].position, 3, vector3_type, 0, 0, messenger_com);
-                    //printf("Sending coordinates of sphere %d - x: %.2f y: %.2f z: %.2f\n", b1, spheres_g[b1].position.x, spheres_g[b1].position.y, spheres_g[b1].position.z);
+                    //printf("Sending coordinates of sphere %d - x: %.2f y: %.2f z: %.2f\n", all_sphere_indices[b1], spheres_g[all_sphere_indices[b1]].position.x, spheres_g[all_sphere_indices[b1]].position.y, spheres_g[all_sphere_indices[b1]].position.z);
                 }
             }
+            //To ensure each step is synchronised between processes
             MPI_Barrier(dynamics_comm);
         }
 
@@ -315,15 +346,17 @@ int main(int argc, char **argv) {
             for (int o = 0; o < number_of_spheres; o++) {
                 fclose(text_output_files[o]);
             }
+            free(text_output_files);
+            fclose(energy_output_file);
         }
-        free(text_output_files);
-        fclose(energy_output_file);
+
         elapsed_time = MPI_Wtime()  - start_time;
 
         if (dynamics_rank == 0) {
             printf("\nDynamics calculation time: %f\n", elapsed_time);
         }
     }
+    MPI_Barrier(MPI_COMM_WORLD);
 
     free(spheres);
     //free(spheres_g);
@@ -334,6 +367,7 @@ int main(int argc, char **argv) {
     MPI_Type_free(&pixel_colour_type);
     MPI_Type_free(&vector3_type);
     MPI_Type_free(&sphere_type);
+    MPI_Type_free(&solid_colour_sphere_type);
     MPI_Type_free(&fixed_solid_colour_sphere_type);
 
     MPI_Barrier(MPI_COMM_WORLD);

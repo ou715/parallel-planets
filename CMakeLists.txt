@@ -5,6 +5,8 @@ set(CMAKE_C_STANDARD 11)
 
 find_package(MPI REQUIRED)
 
+# add_compile_options(-fsanitize=address)
+# add_link_options(-fsanitize=address)
 
 add_executable(parallel-planets src/main.c
         src/ray-tracing/geometry.c
