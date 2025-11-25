@@ -24,6 +24,8 @@ add_executable(parallel-planets src/main.c
         src/dynamics/move.h
 )
 
+add_executable(input-generator src/utils/input_generator.c)
+
 target_compile_options(parallel-planets PRIVATE -march=native)
 
 find_library(MATH_LIBRARY m)

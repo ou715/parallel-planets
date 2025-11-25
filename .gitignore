@@ -3,5 +3,8 @@
 /cmake-build-release/
 /outputs/video/
 /outputs/archive/
+/outputs/*.png
 outputs/video_bak/*
 outputs/txt/*.txt
+.idea/*
+*.gif

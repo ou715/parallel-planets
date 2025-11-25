@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     int number_of_time_steps = option_arguments.number_of_steps;
     double dt = option_arguments.step_size;
 
-    int render_n = 1000; //Determines how often does a simulation step gets rendered
+    int render_n = 10; //Determines how often does a simulation step gets rendered
 
     char *input_file_name = basename(sphere_input_path);
 
@@ -114,6 +114,8 @@ int main(int argc, char **argv) {
     MPI_Group_incl(world_group, ray_tracing_ranks_number, ray_tracing_ranks, &ray_tracing_group);
     MPI_Group_incl(world_group, dynamics_ranks_number, dynamics_ranks, &dynamics_group);
 
+    //NOTE - world rank of dynamics group is assumed to be 0, and is 1 for ray tracing
+    // TODO, make these the first element of the ranks arrays (or even configurable)
     int ray_tracing_rank, dynamics_rank;
     MPI_Group_rank(ray_tracing_group, &ray_tracing_rank);
     MPI_Group_rank(dynamics_group, &dynamics_rank);
@@ -337,11 +339,8 @@ int main(int argc, char **argv) {
                     //printf("Sending coordinates of sphere %d - x: %.2f y: %.2f z: %.2f\n", all_sphere_indices[b1], spheres_g[all_sphere_indices[b1]].position.x, spheres_g[all_sphere_indices[b1]].position.y, spheres_g[all_sphere_indices[b1]].position.z);
                 }
             }
-            //To ensure each step is synchronised between processes
-            MPI_Barrier(dynamics_comm);
         }
 
-        MPI_Barrier(dynamics_comm);
         if (dynamics_rank == 0) {
             for (int o = 0; o < number_of_spheres; o++) {
                 fclose(text_output_files[o]);
@@ -349,6 +348,9 @@ int main(int argc, char **argv) {
             free(text_output_files);
             fclose(energy_output_file);
         }
+
+        free(all_sphere_indices);
+        MPI_Barrier(dynamics_comm);
 
         elapsed_time = MPI_Wtime()  - start_time;
 
