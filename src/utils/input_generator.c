@@ -8,7 +8,9 @@ int main(int argc, char **argv) {
     char *output_path = argv[2];
 
     FILE *output_file = fopen(output_path, "w");
-    printf("\nGENERATING INPUTS FOR %i BODIES\n", n);
+    printf("==================================================\n");
+    printf("Generating inputs for %i bodies\n", n);
+    printf("Writing outputs to file %s\n", output_path);
 
     if (!output_file) {
         fprintf(stderr, "File %s cannot be opened!\n", output_path);
@@ -44,6 +46,8 @@ int main(int argc, char **argv) {
         }
 
         fclose(output_file);
+        printf("\nFinished generating inputs for %i bodies\n", n);
+        printf("==================================================\n");
         return 0;
     }
 }

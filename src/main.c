@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     int number_of_time_steps = option_arguments.number_of_steps;
     double dt = option_arguments.step_size;
 
-    int render_n = 10; //Determines how often does a simulation step gets rendered
+    int render_n = 100; //Determines how often does a simulation step gets rendered
 
     char *input_file_name = basename(sphere_input_path);
 
@@ -80,8 +80,8 @@ int main(int argc, char **argv) {
     rank_configuration input_rank_configuration;
 
     if (rank == 0) {
-        printf("START PROGRAM\n\n");
         printf("=================================\n");
+        printf("START PROGRAM\n\n");
         printf("Rank input file path: %s \n", ranks_config_input_path);
         input_rank_configuration = read_rank_configuration(ranks_config_input_path);
         ray_tracing_ranks_number = input_rank_configuration.number_of_ray_tracing_ranks;
@@ -94,6 +94,7 @@ int main(int argc, char **argv) {
 
         //printf("Input rank configuration mapped!\n");
     }
+
     MPI_Barrier(MPI_COMM_WORLD);
 
     MPI_Bcast(&ray_tracing_ranks_number, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -185,7 +186,7 @@ int main(int argc, char **argv) {
     //TODO Find out why is a dynamic array causing segmentation fault when finalizing
     //sphere *spheres_g = malloc(number_of_spheres * sizeof(sphere));
     //TODO merge this with the main sphere struct array. Careful not to require rewrite if additional sphere types get added
-    sphere spheres_g[4];
+    sphere spheres_g[number_of_spheres];
     for (int m = 0; m < number_of_spheres; m++) {
         spheres_g[m] = spheres[m].sphere;
     }

@@ -7,4 +7,6 @@
 outputs/video_bak/*
 outputs/txt/*.txt
 .idea/*
+tests/outputs/*
+tests/inputs/*
 *.gif

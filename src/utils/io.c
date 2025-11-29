@@ -90,7 +90,9 @@ void read_sphere_configuration(char *file_path, solid_colour_sphere *spheres, in
                                                     fprintf(stderr, "Exiting\n");
                                                     exit(EXIT_FAILURE);
                                                 } else {
-                                                    // printf("The velocity of sphere3_m is x: %.2f, y: %.2f, z: %.2f\n", spheres[i].sphere.velocity.x,
+                                                    // printf("The position of sphere %d is x: %.2f, y: %.2f, z: %.2f\n", i, spheres[i].sphere.position.x,
+                                                    //  spheres[i].sphere.position.y, spheres[i].sphere.position.z);
+                                                    // printf("The velocity of sphere %d is x: %.2f, y: %.2f, z: %.2f\n", i, spheres[i].sphere.velocity.x,
                                                     //  spheres[i].sphere.velocity.y, spheres[i].sphere.velocity.z);
                                                 }
 
