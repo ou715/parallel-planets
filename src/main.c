@@ -43,8 +43,8 @@ int main(int argc, char **argv) {
     char *ranks_config_input_path = option_arguments.ranks_file;
     int number_of_time_steps = option_arguments.number_of_steps;
     double dt = option_arguments.step_size;
-
-    int render_n = 100; //Determines how often does a simulation step gets rendered
+    int file_outputs_flag = option_arguments.file_output;
+    int render_n = option_arguments.render_step_ratio; //Determines how often does a simulation step gets rendered
 
     char *input_file_name = basename(sphere_input_path);
 
@@ -171,13 +171,15 @@ int main(int argc, char **argv) {
         printf("Image width is %d and image height is %d\n", image_width, image_height);
         printf("The eye is positioned at x: %.2f, y: %.2f, z: %.2f\n", scene.eye_position.x, scene.eye_position.y, scene.eye_position.z);
         printf("Rows to be rendered by each process:  %d\n", number_of_rows_per_process );
+        printf("Each %d. time step will be rendered\n", render_n );
 
         printf("\n==============================");
         printf("\nN body simulation information:\n");
         printf("The number of time steps is: %d\n", number_of_time_steps);
         printf("The size of the time step is: %.5f\n", dt);
-        printf("\nOutput root is: %s\n", output_root);
-
+        if (file_outputs_flag != 0) {
+            printf("\nOutput root is: %s\n", output_root);
+        }
         printf("\nSTART SIMULATION\n");
     }
 
@@ -193,15 +195,17 @@ int main(int argc, char **argv) {
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    double start_time, elapsed_time;
+    double start_time, ray_tracing_elapsed_time, dynamic_elapsed_time, ray_tracing_no_waiting_time, dynamics_no_waiting_time;
     start_time = MPI_Wtime();
 
     if (ray_tracing_rank != MPI_UNDEFINED) {
         MPI_Comm_create_group(MPI_COMM_WORLD, ray_tracing_group, 0, &ray_tracing_comm);
-        MPI_Intercomm_create(ray_tracing_comm, 0, MPI_COMM_WORLD, 0, 0, &messenger_com);
+        MPI_Intercomm_create(ray_tracing_comm, 0, MPI_COMM_WORLD, dynamics_ranks[0], 0, &messenger_com);
         int *received_rows = malloc(number_of_rows_per_process * sizeof(int));
         int pixels_to_receive = image_width * number_of_rows_per_process; //also the number of total pixels per partial image
         char image_output_path[PATH_MAX];
+
+        double wait_time = start_time;
 
         if (ray_tracing_rank == 0) {
             //Sending data in consecutive rows. There are probably more efficient ways to split the work,
@@ -224,45 +228,51 @@ int main(int argc, char **argv) {
             //
             if (t % render_n == 0) {
 
-            //Actual work
-            render_pixels(image_width, received_rows, number_of_rows_per_process, scene, spheres, number_of_spheres, point_light, partial_image, rank);
-            //printf("All rendered\n");
-            //Combine partial images to root rank
-            MPI_Gather(partial_image, pixels_to_receive, pixel_colour_type, image, pixels_to_receive, pixel_colour_type, 0, ray_tracing_comm);
-            }
-            //Output
-            if (ray_tracing_rank == 0) {
-                //printf("The position of sphere3 is x: %.2f, y: %.2f, z: %.2f\n", sphere3.sphere.position.x, sphere3.sphere.position.y, sphere3.sphere.position.z);
-                //printf("The position of sphere3_m is x: %.2f, y: %.2f, z: %.2f\n", sphere3_m.position.x, sphere3_m.position.y, sphere3_m.position.z);
-                if (t % render_n == 0) {
-                    snprintf(image_output_path, sizeof(image_output_path), "%s/video/image_%04d.png", output_root, t/render_n);
-                    save_image_png(image, image_width, image_height, image_output_path);
+                //Actual work
+                render_pixels(image_width, received_rows, number_of_rows_per_process, scene, spheres, number_of_spheres, point_light, partial_image, rank);
+                //printf("All rendered\n");
+                //Combine partial images to root rank
+                MPI_Gather(partial_image, pixels_to_receive, pixel_colour_type, image, pixels_to_receive, pixel_colour_type, 0, ray_tracing_comm);
+
+                    //Output
+                if (ray_tracing_rank == 0) {
+                    //printf("The position of sphere3 is x: %.2f, y: %.2f, z: %.2f\n", sphere3.sphere.position.x, sphere3.sphere.position.y, sphere3.sphere.position.z);
+                    //printf("The position of sphere3_m is x: %.2f, y: %.2f, z: %.2f\n", sphere3_m.position.x, sphere3_m.position.y, sphere3_m.position.z);
+                    if (file_outputs_flag != 0) {
+                        snprintf(image_output_path, sizeof(image_output_path), "%s/video/%03d_spheres_image_%04d.png", output_root, number_of_spheres, t/render_n);
+                        save_image_png(image, image_width, image_height, image_output_path);
+                    }
+
+                    wait_time -= MPI_Wtime();
+                    for (int b1 = 0; b1 < number_of_spheres; b1++) {
+                        MPI_Recv(&spheres_g[b1].position, 3, vector3_type, 0, 0, messenger_com, MPI_STATUS_IGNORE);
+                    }
+                    wait_time += MPI_Wtime();
                 }
 
+                //Update the other ranks about the position/velocity of the spheres
                 for (int b1 = 0; b1 < number_of_spheres; b1++) {
-                    MPI_Recv(&spheres_g[b1].position, 3, vector3_type, 0, 0, messenger_com, MPI_STATUS_IGNORE);
+                    MPI_Bcast(&spheres_g[b1].position, 3, vector3_type, 0, ray_tracing_comm);
+                    spheres[b1].sphere.position = spheres_g[b1].position;
                 }
-            }
-            //Update the other ranks about the position/velocity of the spheres
-            for (int b1 = 0; b1 < number_of_spheres; b1++) {
-                MPI_Bcast(&spheres_g[b1].position, 3, vector3_type, 0, ray_tracing_comm);
-                spheres[b1].sphere.position = spheres_g[b1].position;
             }
         }
         free(partial_image);
         free(image);
 
         MPI_Barrier(ray_tracing_comm);
-        elapsed_time = MPI_Wtime()  - start_time;
-
+        ray_tracing_elapsed_time = MPI_Wtime() - start_time;
+        ray_tracing_no_waiting_time = ray_tracing_elapsed_time - wait_time;
         if (ray_tracing_rank == 0) {
-            printf("\nRay tracing CPU time: %f\n", elapsed_time);
+            printf("\nRay tracing CPU time: %f\n", ray_tracing_elapsed_time);
+            printf("\nRay tracing CPU time without waiting for dynamics: %f\n", ray_tracing_no_waiting_time);
         }
     }
 
     if (dynamics_rank != MPI_UNDEFINED) {
         MPI_Comm_create_group(MPI_COMM_WORLD, dynamics_group, 0, &dynamics_comm);
-        MPI_Intercomm_create(dynamics_comm, 0, MPI_COMM_WORLD, 1, 0, &messenger_com);
+        MPI_Intercomm_create(dynamics_comm, 0, MPI_COMM_WORLD, ray_tracing_ranks[0], 0, &messenger_com);
+        double wait_time = start_time;
 
         //printf("World rank = %d : dynamics_rank    = %d\n", rank, dynamics_rank);
 
@@ -287,10 +297,12 @@ int main(int argc, char **argv) {
         FILE **text_output_files, *energy_output_file;
         double kinetic_energy, potential_energy, total_energy;
 
-        if (dynamics_rank == 0) {
+        if (dynamics_rank == 0 && file_outputs_flag != 0) {
+
             text_output_files = malloc(number_of_spheres * sizeof(FILE));
             snprintf(text_output_path, sizeof(text_output_path), "%s/txt/system_energy_%s.txt", output_root, input_file_name);
             energy_output_file = fopen(text_output_path, "w");
+
             for (int o = 0; o < number_of_spheres; o++) {
                 snprintf(text_output_path, sizeof(text_output_path), "%s/txt/sphere_%s_%03d.txt", output_root, input_file_name, o);
                 text_output_files[o] = fopen(text_output_path, "w");
@@ -301,7 +313,7 @@ int main(int argc, char **argv) {
         for (int t = 0; t < number_of_time_steps; t++) {
             //TEMPORARY ONLY USING 1
             //printf("Current time is %.1f\n", t*dt);
-            if (dynamics_rank == 0) {
+            if (dynamics_rank == 0 && file_outputs_flag != 0) {
 
                 for (int b1 = 0; b1 < number_of_spheres; b1++) {
 
@@ -313,7 +325,6 @@ int main(int argc, char **argv) {
                                                             spheres_g[b1].velocity.x,
                                                             spheres_g[b1].velocity.y,
                                                             spheres_g[b1].velocity.z);
-
                 }
                 kinetic_energy = calculate_kinetic_energy(spheres_g, number_of_spheres);
                 potential_energy = calculate_potential_energy(spheres_g, number_of_spheres);
@@ -333,16 +344,20 @@ int main(int argc, char **argv) {
 
             if (dynamics_rank == 0) {
                 //TODO send an array instead
-                for (int b1 = 0; b1 < number_of_spheres; b1++) {
-                    //printf("Accessing sphere %i\n", b1);
-                    //Potential stack-buffer-overflow
-                    MPI_Send(&spheres_g[b1].position, 3, vector3_type, 0, 0, messenger_com);
-                    //printf("Sending coordinates of sphere %d - x: %.2f y: %.2f z: %.2f\n", all_sphere_indices[b1], spheres_g[all_sphere_indices[b1]].position.x, spheres_g[all_sphere_indices[b1]].position.y, spheres_g[all_sphere_indices[b1]].position.z);
+                if (t % render_n == 0) {
+                    wait_time -= MPI_Wtime();
+                    for (int b1 = 0; b1 < number_of_spheres; b1++) {
+                        //printf("Accessing sphere %i\n", b1);
+                        //Potential stack-buffer-overflow
+                        MPI_Send(&spheres_g[b1].position, 3, vector3_type, 0, 0, messenger_com);
+                        //printf("Sending coordinates of sphere %d - x: %.2f y: %.2f z: %.2f\n", all_sphere_indices[b1], spheres_g[all_sphere_indices[b1]].position.x, spheres_g[all_sphere_indices[b1]].position.y, spheres_g[all_sphere_indices[b1]].position.z);
+                    }
+                    wait_time += MPI_Wtime();
                 }
             }
         }
 
-        if (dynamics_rank == 0) {
+        if (dynamics_rank == 0 && file_outputs_flag != 0) {
             for (int o = 0; o < number_of_spheres; o++) {
                 fclose(text_output_files[o]);
             }
@@ -350,19 +365,40 @@ int main(int argc, char **argv) {
             fclose(energy_output_file);
         }
 
-        free(all_sphere_indices);
+        //free(all_sphere_indices);
         MPI_Barrier(dynamics_comm);
 
-        elapsed_time = MPI_Wtime()  - start_time;
+        dynamic_elapsed_time = MPI_Wtime()  - start_time;
 
         if (dynamics_rank == 0) {
-            printf("\nDynamics calculation time: %f\n", elapsed_time);
+            dynamics_no_waiting_time = dynamic_elapsed_time - wait_time;
+            printf("\nDynamics calculation time without waiting for RT: %f\n", dynamics_no_waiting_time);
+
+            printf("\nDynamics calculation time: %f\n", dynamic_elapsed_time);
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
 
     free(spheres);
     //free(spheres_g);
+
+    MPI_Bcast(&ray_tracing_elapsed_time, 1, MPI_DOUBLE, ray_tracing_ranks[0], MPI_COMM_WORLD);
+    MPI_Bcast(&dynamic_elapsed_time, 1, MPI_DOUBLE, dynamics_ranks[0], MPI_COMM_WORLD);
+    // printf("\nDynamics root rank is: %d\n", dynamics_ranks[0]);
+    // printf("\nRay tracing root rank is: %d\n", ray_tracing_ranks[0]);
+
+    if (rank == 0) {
+        output_benchmark(output_root,
+                         number_of_time_steps,
+                         dt,
+                         ray_tracing_ranks_number,
+                         dynamics_ranks_number,
+                         number_of_spheres,
+                         image_height,
+                         render_n,
+                         ray_tracing_elapsed_time,
+                         dynamic_elapsed_time);
+    }
 
     MPI_Group_free(&ray_tracing_group);
     MPI_Group_free(&dynamics_group);

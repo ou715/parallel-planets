@@ -210,6 +210,39 @@ error_t parse_options(int key, char *arg, struct argp_state *state) {
         case 'r':
             arguments->ranks_file = arg;
             break;
+        case 'f':
+            arguments->file_output = atoi(arg);
+            break;
+        case 'k':
+            arguments->render_step_ratio = atoi(arg);
+            break;
     }
     return 0;
+}
+
+void output_benchmark(const char *output_root,
+                      int number_of_time_steps,
+                      double dt,
+                      int ray_tracing_ranks_number,
+                      int dynamics_ranks_number,
+                      int number_of_spheres,
+                      int image_height,
+                      int render_n,
+                      double ray_tracing_elapsed_time,
+                      double dynamic_elapsed_time) {
+
+    char benchmark_file_path[PATH_MAX];
+    char benchmark_row[200];
+
+    snprintf(benchmark_file_path, sizeof(benchmark_file_path), "%s/benchmarks/benchmark_%i_%.3f.csv", output_root, number_of_time_steps, dt);
+    FILE *benchmark_file;
+    if((benchmark_file = fopen(benchmark_file_path,"r")) != NULL) {
+        benchmark_file = fopen(benchmark_file_path,"a");
+    }
+    else {
+        benchmark_file = fopen(benchmark_file_path,"w");
+        fprintf(benchmark_file, "rt_ranks,d_ranks,n_bodies,image_height,render_n,rt_time,d_time");
+    }
+    fprintf(benchmark_file, "\n%d,%d,%d,%d,%d,%.4f,%.4f", ray_tracing_ranks_number, dynamics_ranks_number, number_of_spheres, image_height, render_n, ray_tracing_elapsed_time, dynamic_elapsed_time);
+    fclose(benchmark_file);
 }

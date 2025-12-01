@@ -1,5 +1,0 @@
-for i in $(seq 1 10);
-do
-    n=$((4*i))
-    ./tests/scripts/testNBodies4RT1DCores.sh $n
-done

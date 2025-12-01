@@ -25,9 +25,9 @@ int main(int argc, char **argv) {
         //TODO Make the input ranges configurable
         //TODO positions should be set to be at least some minimum distance away
         for (int i = 0; i < n; i++) {
-            double x =(60 * (double)rand() / RAND_MAX) - 30;
-            double y =(60 * (double)rand() / RAND_MAX) - 30;
-            double z =(60 * (double)rand() / RAND_MAX) - 30;
+            double x =((60 + n * 0.5 ) * (double)rand() / RAND_MAX) - 30;
+            double y =((60 + n * 0.5 ) * (double)rand() / RAND_MAX) - 30;
+            double z =((60 + n * 0.5 ) * (double)rand() / RAND_MAX) - 30;
 
             double v_x = 0.01 * (double)rand() / RAND_MAX;
             double v_y = 0.01 * (double)rand() / RAND_MAX;
