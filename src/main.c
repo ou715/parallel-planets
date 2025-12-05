@@ -278,11 +278,11 @@ int main(int argc, char **argv) {
 
         //Holds a list of integers that will be used for indexing spheres
         int *all_sphere_indices = malloc(number_of_spheres * sizeof(int));
+        //TODO Handle the case when there's more dynamic ranks than spheres
         int equal_parts = number_of_spheres / dynamics_ranks_number;
 
         int local_sphere_count = equal_parts + (number_of_spheres % dynamics_ranks_number) * (dynamics_ranks_number % (dynamics_rank + 1));
         //printf("-local_sphere_count %i\n", local_sphere_count);
-
 
         for (int i = 0; i < local_sphere_count; i++) {
             all_sphere_indices[i] = dynamics_rank * equal_parts + i;
@@ -384,6 +384,9 @@ int main(int argc, char **argv) {
 
     MPI_Bcast(&ray_tracing_elapsed_time, 1, MPI_DOUBLE, ray_tracing_ranks[0], MPI_COMM_WORLD);
     MPI_Bcast(&dynamic_elapsed_time, 1, MPI_DOUBLE, dynamics_ranks[0], MPI_COMM_WORLD);
+
+    MPI_Bcast(&ray_tracing_no_waiting_time, 1, MPI_DOUBLE, ray_tracing_ranks[0], MPI_COMM_WORLD);
+    MPI_Bcast(&dynamics_no_waiting_time, 1, MPI_DOUBLE, dynamics_ranks[0], MPI_COMM_WORLD);
     // printf("\nDynamics root rank is: %d\n", dynamics_ranks[0]);
     // printf("\nRay tracing root rank is: %d\n", ray_tracing_ranks[0]);
 
@@ -397,7 +400,9 @@ int main(int argc, char **argv) {
                          image_height,
                          render_n,
                          ray_tracing_elapsed_time,
-                         dynamic_elapsed_time);
+                         dynamic_elapsed_time,
+                         ray_tracing_no_waiting_time,
+                         dynamics_no_waiting_time);
     }
 
     MPI_Group_free(&ray_tracing_group);

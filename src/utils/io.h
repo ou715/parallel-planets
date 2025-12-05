@@ -48,6 +48,8 @@ void output_benchmark(const char *output_root,
                       int image_height,
                       int render_n,
                       double ray_tracing_elapsed_time,
-                      double dynamic_elapsed_time);
+                      double dynamic_elapsed_time,
+                      double ray_tracing_time_no_intercom,
+                      double dynamic_time_no_intercom);
 
 #endif //IO_H

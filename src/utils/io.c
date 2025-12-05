@@ -229,7 +229,9 @@ void output_benchmark(const char *output_root,
                       int image_height,
                       int render_n,
                       double ray_tracing_elapsed_time,
-                      double dynamic_elapsed_time) {
+                      double dynamic_elapsed_time,
+                      double ray_tracing_time_no_intercom,
+                      double dynamic_time_no_intercom) {
 
     char benchmark_file_path[PATH_MAX];
     char benchmark_row[200];
@@ -241,8 +243,16 @@ void output_benchmark(const char *output_root,
     }
     else {
         benchmark_file = fopen(benchmark_file_path,"w");
-        fprintf(benchmark_file, "rt_ranks,d_ranks,n_bodies,image_height,render_n,rt_time,d_time");
+        fprintf(benchmark_file, "rt_ranks,d_ranks,n_bodies,image_height,render_n,rt_time,d_time,rt_time_elapsed,d_time_elapsed");
     }
-    fprintf(benchmark_file, "\n%d,%d,%d,%d,%d,%.4f,%.4f", ray_tracing_ranks_number, dynamics_ranks_number, number_of_spheres, image_height, render_n, ray_tracing_elapsed_time, dynamic_elapsed_time);
+    fprintf(benchmark_file, "\n%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%.3f", ray_tracing_ranks_number,
+                                                                    dynamics_ranks_number,
+                                                                    number_of_spheres,
+                                                                    image_height,
+                                                                    render_n,
+                                                                    ray_tracing_elapsed_time,
+                                                                    dynamic_elapsed_time,
+                                                                    ray_tracing_time_no_intercom,
+                                                                    dynamic_time_no_intercom);
     fclose(benchmark_file);
 }
