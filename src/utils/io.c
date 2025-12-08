@@ -216,6 +216,9 @@ error_t parse_options(int key, char *arg, struct argp_state *state) {
         case 'k':
             arguments->render_step_ratio = atoi(arg);
             break;
+        case 'v':
+            arguments->image_height = atoi(arg);
+            break;
     }
     return 0;
 }

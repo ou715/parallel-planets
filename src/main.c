@@ -38,6 +38,7 @@ int main(int argc, char **argv) {
     struct argp argp = {options, parse_options, 0, doc};
     argp_parse(&argp, argc, argv, 0, 0, &option_arguments);
 
+    //TODO Could use some sensible defaults
     char *output_root = option_arguments.output_directory;
     char *sphere_input_path = option_arguments.sphere_input_file;
     char *ranks_config_input_path = option_arguments.ranks_file;
@@ -45,6 +46,8 @@ int main(int argc, char **argv) {
     double dt = option_arguments.step_size;
     int file_outputs_flag = option_arguments.file_output;
     int render_n = option_arguments.render_step_ratio; //Determines how often does a simulation step gets rendered
+    const int image_height = option_arguments.image_height; //Determines how often does a simulation step gets rendered
+    //const int image_height = 72 * 5; //for even division of work; should be generalized
 
     char *input_file_name = basename(sphere_input_path);
 
@@ -126,7 +129,6 @@ int main(int argc, char **argv) {
     //IMAGE RELATED SETUP
     //TODO read these from an input file or command line
     const double aspect_ratio = 1.6; // almost as good as 4:3
-    const int image_height = 72 * 5; //for even division of work; should be generalized
     const int image_width = image_height * aspect_ratio;
 
     scene scene = scene_init(image_width, image_height);

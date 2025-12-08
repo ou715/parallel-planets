@@ -11,9 +11,10 @@ static struct argp_option options[] = {
     {"sphere_input_file", 'i', "INPUT_FILE_PATH", 0, "Path to file containing sphere coordinates"},
     {"n_steps", 'n', "NUMBER_OF_STEPS", 0, "Number of steps to run the simulation for"},
     {"step_size", 'h', "STEP SIZE", 0, "Size of a single step"},
-    {"ranks_file", 'r', "VALUE", 0, "Path to rank configuration file"},
-    {"image_output", 'f', "VALUE", 0, "Flag for saving file outputs"},
+    {"ranks_file", 'r', "FILE", 0, "Path to rank configuration file"},
+    {"file_output_flag", 'f', "PATH", 0, "Flag for saving file outputs"},
     {"render_step_ratio", 'k', "VALUE", 0, "Determines the ratio of time steps calculated to rendered"},
+    {"image_height", 'v', "VALUE", 0, "Determines the height of the output image"},
     {0}
 };
 
@@ -25,6 +26,7 @@ typedef struct option_arguments {
     char *ranks_file;
     int file_output;
     int render_step_ratio;
+    int image_height;
 } option_arguments;
 
 typedef struct rank_configuration {

@@ -9,6 +9,5 @@ outputs/txt/*.txt
 .idea/*
 tests/outputs/*.*
 tests/outputs/*_*
-tests/outputs/benchmarks/
 tests/inputs/*
 *.gif

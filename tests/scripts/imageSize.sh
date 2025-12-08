@@ -17,5 +17,5 @@ mkdir -p "${output_root}"
         -r "$(pwd)/tests/inputs/core_splits/${core_split}" \
         -f 0 \
         -k $rt_dynamic_ratio \
-        -h 360
+        -v $4
 } 2>&1 | tee "${script_output_path}${core_split}.txt"
