@@ -1,5 +1,17 @@
-#include "geometry.h"
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+#include "geometry.h"
 #include <math.h>
 
 double square(const double x) {
@@ -50,10 +62,4 @@ vector3 unit_vector(const vector3 v) {
     result.y = v.y / starting_vector3_length;
     result.z = v.z / starting_vector3_length;
     return result;
-}
-
-//Ray code
-
-vector3 ray_at_t(const ray r, const double t) {
-    return add_vector3(r.origin, vector3_multiply_by_scalar(r.direction, t));
 }
