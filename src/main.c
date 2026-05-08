@@ -19,7 +19,7 @@
 #include <string.h>
 
 #include "dynamics/move.h"
-#include "mpi/mpi.h"
+#include <mpi.h>
 #include "ray-tracing/geometry.h"
 #include "ray-tracing/ray_trace.h"
 #include "utils/io.h"

@@ -63,3 +63,7 @@ vector3 unit_vector(const vector3 v) {
     result.z = v.z / starting_vector3_length;
     return result;
 }
+
+vector3 ray_at_t(const ray r, const double t) {
+    return add_vector3(r.origin, vector3_multiply_by_scalar(r.direction, t));
+}
