@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
     double dt = option_arguments.step_size;
     int file_outputs_flag = option_arguments.file_output;
     int render_n = option_arguments.render_step_ratio; //Determines how often does a simulation step gets rendered
-    const int image_height = option_arguments.image_height; //Determines how often does a simulation step gets rendered
+    const int image_height = option_arguments.image_height;
     //const int image_height = 72 * 5; //for even division of work; should be generalized
 
     char *input_file_name = basename(sphere_input_path);
